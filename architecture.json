@@ -1,46 +1,74 @@
 {
   "kind": "layered",
-  "title": "Tablekeeper service architecture (per stage folder)",
+  "title": "Tablekeeper service architecture (all four stages)",
   "layers": [
     {
-      "id": "edge",
-      "title": "Transport",
+      "id": "clients",
+      "title": "Clients",
       "items": [
-        { "id": "http_server", "label": "HTTP server 0.0.0.0:$PORT (stdlib ThreadingHTTPServer)" },
-        { "id": "router", "label": "Router + error envelope + auth/idempotency pipeline" },
-        { "id": "ui_routes", "label": "Server-rendered UI routes (stage 2+)" }
+        { "id": "browser_ui", "label": "Browser UI (search grid, booking, lookup, manager screens)", "detail": "Stage 2+: warm hospitality UI, testid contract, uncertain/refused recovery" },
+        { "id": "api_consumers", "label": "API consumers & harness", "detail": "Official harness speaks HTTP only" }
+      ]
+    },
+    {
+      "id": "edge",
+      "title": "HTTP edge",
+      "items": [
+        { "id": "server", "label": "Server, routing & error envelope", "detail": "stdlib ThreadingHTTPServer; exact status/code precedence; TK_HARDENED flag" },
+        { "id": "authn", "label": "Signup / login / bearer auth", "detail": "scrypt password hashing, non-expiring tokens, multi-session" },
+        { "id": "test_controls", "label": "/_test reset/export/import", "detail": "Unauthenticated; fixture apply + atomic state transfer" }
       ]
     },
     {
       "id": "domain",
-      "title": "Domain",
+      "title": "Domain core",
       "items": [
-        { "id": "auth", "label": "auth.py: signup/login, tokens, scrypt (experience)" },
-        { "id": "availability", "label": "availability: slot grid, opening hours, overlaps" },
-        { "id": "reservations", "label": "reservations: create/patch/cancel/lookup, cutoffs" },
-        { "id": "moves", "label": "reservation-moves: atomic batch" },
-        { "id": "policies", "label": "policies + accepted terms + history (stage 3)" },
-        { "id": "series", "label": "recurring series + exceptions (stage 3-4)" },
-        { "id": "replan", "label": "closure replan: bounded optimal solver (stage 4)" },
-        { "id": "idempotency", "label": "idempotency ledger: key->(body,response)" }
+        { "id": "availability", "label": "Slot grid & availability", "detail": "IANA TZ/DST, explain rules (s3), declared pairs (s2)" },
+        { "id": "booking", "label": "Reservations", "detail": "create/amend/cancel, cutoffs, occupancy" },
+        { "id": "moves", "label": "Atomic reservation-moves", "detail": "all-or-nothing multi-booking batches" },
+        { "id": "idempotency", "label": "Idempotency ledger", "detail": "per-user keys, byte-exact replay receipts" },
+        { "id": "policies", "label": "Dated policies & terms", "detail": "s3: versioned selection, accepted_terms, revisions" },
+        { "id": "series", "label": "Recurring series", "detail": "s3/4: occurrence generation, exceptions, series amend" },
+        { "id": "replans", "label": "Closure replanning", "detail": "s4: bounded deterministic global optimizer + apply" },
+        { "id": "history", "label": "History & revisions", "detail": "s3+: seq-ordered events, terms snapshots" }
       ]
     },
     {
       "id": "state",
-      "title": "State (single writer)",
+      "title": "State",
       "items": [
-        { "id": "store", "label": "store: SQLite, one connection, serialized by one lock" },
-        { "id": "fixtures", "label": "fixtures.py: /_test/reset parse+seed (experience)" },
-        { "id": "transfer", "label": "transfer: /_test/export + /_test/import atomic snapshot" },
-        { "id": "timeutil", "label": "timeutil: zoneinfo, DST resolve, half-open intervals" }
+        { "id": "store", "label": "Transactional state store", "detail": "one sqlite conn + one RLock; check-and-act is one critical section" },
+        { "id": "export_import", "label": "Export / import snapshots", "detail": "atomic opaque state incl. credentials, tokens, receipts" }
+      ]
+    },
+    {
+      "id": "platform",
+      "title": "Packaging & evidence",
+      "items": [
+        { "id": "docker_image", "label": "Single Docker image", "detail": "python:3.12-slim + tzdata; ≤2 vCPU / 2 GiB, PORT env, no runtime egress" },
+        { "id": "docs", "label": "RUN.md / DEMO-RUNBOOK.md", "detail": "reproducible build + 3-minute demo" }
       ]
     }
   ],
   "flows": [
-    { "from": "http_server", "to": "router", "label": "request" },
-    { "from": "router", "to": "domain", "label": "pipeline: parse->auth->idempotency->validate->domain" },
-    { "from": "domain", "to": "store", "label": "all state ops under one lock (linearizable)" },
-    { "from": "fixtures", "to": "store", "label": "atomic replace" },
-    { "from": "transfer", "to": "store", "label": "atomic snapshot/replace" }
+    { "from": "browser_ui", "to": "server", "label": "HTTP/JSON + pages" },
+    { "from": "api_consumers", "to": "server", "label": "HTTP/JSON" },
+    { "from": "server", "to": "authn", "label": "bearer check" },
+    { "from": "server", "to": "idempotency", "label": "key claim before op" },
+    { "from": "server", "to": "booking", "label": "validated commands" },
+    { "from": "server", "to": "availability", "label": "queries" },
+    { "from": "server", "to": "moves", "label": "batches" },
+    { "from": "server", "to": "policies", "label": "manager writes" },
+    { "from": "server", "to": "series", "label": "adopt / amend" },
+    { "from": "server", "to": "replans", "label": "preview / apply" },
+    { "from": "test_controls", "to": "store", "label": "reset / snapshot" },
+    { "from": "test_controls", "to": "export_import", "label": "export / import" },
+    { "from": "booking", "to": "idempotency", "label": "receipts" },
+    { "from": "booking", "to": "store", "label": "atomic writes" },
+    { "from": "moves", "to": "store", "label": "atomic writes" },
+    { "from": "series", "to": "store", "label": "atomic writes" },
+    { "from": "replans", "to": "store", "label": "atomic writes" },
+    { "from": "policies", "to": "history", "label": "terms snapshots" },
+    { "from": "booking", "to": "history", "label": "events" }
   ]
 }

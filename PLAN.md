@@ -148,7 +148,7 @@ to read its mandate file first; the file is both instruction and artifact.
 
 | Stage | Folder | State |
 |---|---|---|
-| 1 | `stage-1/` | dispatched → engineer (core/domain/state/Dockerfile) + experience (auth/fixtures/tests/RUN.md); verifier deriving spec checks in parallel |
+| 1 | `stage-1/` | impl merged at `4ebb124` (engineer `61bd118` + experience `ad76a8d`/`4ebb124`); experience spec-derived checks 23/23 PASS; verifier independent verification in flight; seed-reference ruling recorded (R16 / whole-run R12) |
 | 2 | `stage-2/` | pending stage-1 acceptance |
 | 3 | `stage-3/` | pending |
 | 4 | `stage-4/` | pending |
@@ -157,7 +157,112 @@ Coordinator artifacts: `docs/requirements-matrix-stage-1.md` (clause matrix +
 rulings), `docs/seats/` (per-seat model records), `architecture.json` (room
 diagram snapshot source).
 
-## 11. Reference implementations studied
+## 13. Run architecture (room plan)
+
+Extensible architecture chosen after reading all four specs — stack resolved:
+Python 3.12 stdlib only (`ThreadingHTTPServer`, `sqlite3`, `hashlib.scrypt`,
+`zoneinfo`, `secrets`), image `python:3.12-slim` + build-time `tzdata`. Work
+split for stage 1 per the dispatched handoffs (`handoffs/`): **engineer** owns
+`stage-1/Dockerfile` and `stage-1/src/`{errors,server,state,timeutil,
+availability,reservations,moves,idempotency,transfer}`.py`;
+**experience** owns `stage-1/src/auth.py`, `stage-1/src/fixtures.py`,
+`stage-1/tests/` and `stage-1/RUN.md`; **verifier** derives its own check suite
+from the spec text alone. Clause contract: `docs/requirements-matrix.md`
+(whole-run) + `docs/requirements-matrix-stage-1.md` (dispatch numbering).
+
+```arch
+{
+  "kind": "layered",
+  "title": "Tablekeeper service architecture (all four stages)",
+  "layers": [
+    {
+      "id": "clients",
+      "title": "Clients",
+      "items": [
+        { "id": "browser_ui", "label": "Browser UI (search grid, booking, lookup, manager screens)", "detail": "Stage 2+: warm hospitality UI, testid contract, uncertain/refused recovery" },
+        { "id": "api_consumers", "label": "API consumers & harness", "detail": "Official harness speaks HTTP only" }
+      ]
+    },
+    {
+      "id": "edge",
+      "title": "HTTP edge",
+      "items": [
+        { "id": "server", "label": "Server, routing & error envelope", "detail": "stdlib ThreadingHTTPServer; exact status/code precedence; TK_HARDENED flag" },
+        { "id": "authn", "label": "Signup / login / bearer auth", "detail": "scrypt password hashing, non-expiring tokens, multi-session" },
+        { "id": "test_controls", "label": "/_test reset/export/import", "detail": "Unauthenticated; fixture apply + atomic state transfer" }
+      ]
+    },
+    {
+      "id": "domain",
+      "title": "Domain core",
+      "items": [
+        { "id": "availability", "label": "Slot grid & availability", "detail": "IANA TZ/DST, explain rules (s3), declared pairs (s2)" },
+        { "id": "booking", "label": "Reservations", "detail": "create/amend/cancel, cutoffs, occupancy" },
+        { "id": "moves", "label": "Atomic reservation-moves", "detail": "all-or-nothing multi-booking batches" },
+        { "id": "idempotency", "label": "Idempotency ledger", "detail": "per-user keys, byte-exact replay receipts" },
+        { "id": "policies", "label": "Dated policies & terms", "detail": "s3: versioned selection, accepted_terms, revisions" },
+        { "id": "series", "label": "Recurring series", "detail": "s3/4: occurrence generation, exceptions, series amend" },
+        { "id": "replans", "label": "Closure replanning", "detail": "s4: bounded deterministic global optimizer + apply" },
+        { "id": "history", "label": "History & revisions", "detail": "s3+: seq-ordered events, terms snapshots" }
+      ]
+    },
+    {
+      "id": "state",
+      "title": "State",
+      "items": [
+        { "id": "store", "label": "Transactional state store", "detail": "one sqlite conn + one RLock; check-and-act is one critical section" },
+        { "id": "export_import", "label": "Export / import snapshots", "detail": "atomic opaque state incl. credentials, tokens, receipts" }
+      ]
+    },
+    {
+      "id": "platform",
+      "title": "Packaging & evidence",
+      "items": [
+        { "id": "docker_image", "label": "Single Docker image", "detail": "python:3.12-slim + tzdata; ≤2 vCPU / 2 GiB, PORT env, no runtime egress" },
+        { "id": "docs", "label": "RUN.md / DEMO-RUNBOOK.md", "detail": "reproducible build + 3-minute demo" }
+      ]
+    }
+  ],
+  "flows": [
+    { "from": "browser_ui", "to": "server", "label": "HTTP/JSON + pages" },
+    { "from": "api_consumers", "to": "server", "label": "HTTP/JSON" },
+    { "from": "server", "to": "authn", "label": "bearer check" },
+    { "from": "server", "to": "idempotency", "label": "key claim before op" },
+    { "from": "server", "to": "booking", "label": "validated commands" },
+    { "from": "server", "to": "availability", "label": "queries" },
+    { "from": "server", "to": "moves", "label": "batches" },
+    { "from": "server", "to": "policies", "label": "manager writes" },
+    { "from": "server", "to": "series", "label": "adopt / amend" },
+    { "from": "server", "to": "replans", "label": "preview / apply" },
+    { "from": "test_controls", "to": "store", "label": "reset / snapshot" },
+    { "from": "test_controls", "to": "export_import", "label": "export / import" },
+    { "from": "booking", "to": "idempotency", "label": "receipts" },
+    { "from": "booking", "to": "store", "label": "atomic writes" },
+    { "from": "moves", "to": "store", "label": "atomic writes" },
+    { "from": "series", "to": "store", "label": "atomic writes" },
+    { "from": "replans", "to": "store", "label": "atomic writes" },
+    { "from": "policies", "to": "history", "label": "terms snapshots" },
+    { "from": "booking", "to": "history", "label": "events" }
+  ]
+}
+```
+
+### Stage-1 seam (fixed by coordinator, dispatched verbatim to both seats)
+
+- `errors.py` (engineer): `ApiError(status, code, message)`; edge raises, never
+  tuples.
+- `state.py` (engineer): `insert_user`, `user_by_email`, `user_by_id`,
+  `insert_token`, `user_for_token`, `reset(fixture)` — one sqlite conn + one
+  RLock; every check-and-act inside the lock.
+- `auth.py` (experience): `handle_signup`, `handle_login`, `authenticate`,
+  `hash_password`/`verify_password` (scrypt, self-contained stored form).
+- `fixtures.py` (experience): `parse_fixture(body)`, `handle_reset(state,body)`;
+  seeded users get hashed passwords; seeded reservations keep
+  id/reference/user_id verbatim.
+- `server.py` (engineer) wires routes to all of the above; `TK_HARDENED=1`
+  turns every `/_test/*` into 404 (judge image runs without it).
+
+## 14. Reference implementations studied
 
 - `shi1720/WeAreDevelopers` — Tablekeeper, 4 seats, all stages accepted.
   Source of seat set, dispatch shape, module map.
