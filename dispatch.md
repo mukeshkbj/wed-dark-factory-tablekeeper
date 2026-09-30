@@ -46,14 +46,19 @@ Dependencies may be downloaded during build; runtime MUST have no outbound
 network. Do not change official harness/tests or use another contestant's code.
 
 Configured seats, and no others:
-- @mukeshkbj/tk-coordinator (<agent id>): planning, delegation, acceptance,
-  factory documentation.
-- @mukeshkbj/tk-engineer (<agent id>): domain implementation, atomic state,
-  deployment.
-- @mukeshkbj/tk-experience (<agent id>): substantive implementation contribution
-  in stage 1, then product UI, manager workflow and demo assets.
-- @mukeshkbj/tk-verifier (<agent id>): independent spec-derived tests,
-  adversarial checks, isolated official harness, gate decisions.
+- @mukeshkbj/tk-coordinator (fb24d94e-a471-4783-94ff-1c72d37c5b67): planning,
+  delegation, acceptance, factory documentation.
+- @mukeshkbj/tk-engineer (a54295ec-7111-4a4e-876f-d7f925d1a0a1): domain
+  implementation, atomic state, deployment.
+- @mukeshkbj/tk-experience (86c01fc2-d8d3-4fc3-a79c-2bc002b38fa1): substantive
+  implementation contribution in stage 1, then product UI, manager workflow
+  and demo assets.
+- @mukeshkbj/tk-verifier (32de7415-ebc1-41fa-8121-e7280328a21a): independent
+  spec-derived tests, adversarial checks, isolated official harness, gate
+  decisions.
+Standing instructions: each seat's mandate lives at
+D:\WED Dark factory\mandates\tk-<seat>.md — before anything else, read your
+own mandate file; it governs how you work for the entire run.
 All four are already participants in this fresh room. Use `band brief --json`
 for your own identity. Exchange real handoffs via literal @handles. Each
 delegated handoff MUST paste the task's relevant complete instructions and the
