@@ -148,7 +148,7 @@ to read its mandate file first; the file is both instruction and artifact.
 
 | Stage | Folder | State |
 |---|---|---|
-| 1 | `stage-1/` | impl merged at `4ebb124` (engineer `61bd118` + experience `ad76a8d`/`4ebb124`); experience spec-derived checks 23/23 PASS; verifier independent verification in flight; seed-reference ruling recorded (R16 / whole-run R12) |
+| 1 | `stage-1/` | gate R1 **REJECTED** at `695a903`: keep-alive request-body replay assigned as board `#5`; seed-reference ruling reversed (R16 / whole-run R12) after official-suite evidence; repair + verifier recheck in flight |
 | 2 | `stage-2/` | pending stage-1 acceptance |
 | 3 | `stage-3/` | pending |
 | 4 | `stage-4/` | pending |

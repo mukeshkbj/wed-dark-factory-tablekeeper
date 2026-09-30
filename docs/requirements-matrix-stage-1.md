@@ -139,7 +139,7 @@ shared map, not the test list.
 | R13 | `party_size` for availability query: non-digit strings → 422; `0`/negative → 422 validation_failed; huge integers still digits → valid syntax, then capacity rule simply yields empty lists (no max stated). | §5.5 digits rule + §8.3. |
 | R14 | `Idempotency-Key` >255 chars → 422 (not 400); empty/whitespace-only? Treat empty string as missing → 400. Whitespace-only non-empty → allowed (spec says "absent or empty"). | §5.6 + §7 header row. |
 | R15 | Reservation-moves: validate ALL non-occupancy errors first (input order), then one global overlap check → atomic commit or nothing. Replay stores under the batch key. | §11.4/§11.5. |
-| R16 | Fixture-supplied `reference` values are opaque IDs: any non-empty ≤64-char string accepted verbatim; the 6-12 char A-Z0-9 charset binds only references the service generates. Fixture still assumed consistent (unique). | §3.4 "IDs opaque ≤64 chars, including fixture-supplied" + §4.4 vs §8.7; seeds authoritative per R6. Recorded at `4ebb124`; provisional pending verifier's independent review. |
+| R16 | Fixture-supplied `reference` values must match `^[A-Z0-9]{6,12}$`; the ≤64-char opaque-ID limit applies to ids, not `reference`. Invalid seeded references → 422 `validation_failed`. | §8.7 reference contract + §4.4 seeded reservations carrying reference; verifier R1 official-suite evidence (`x`, `lower01`, `TOO-LONG-WITH-DASH` rejected). Reverses the provisional `4ebb124` ruling. |
 
 ## Concurrency threat list (adversarial sweep seeds for verifier)
 

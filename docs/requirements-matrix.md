@@ -239,9 +239,11 @@ this file is the whole-run map.
 - **R11 — restaurant revision vs reservation revision:** independent counters; batch
   operations bump restaurant revision once per request, reservation/series revisions
   once per actually-changed entity.
-- **R12 — fixture `reference` charset:** fixture-supplied references are opaque IDs
-  (any non-empty ≤64-char string, stored verbatim); the generated-reference charset
-  (6-12 chars A-Z0-9) binds service-minted references only. Under verifier review.
+- **R12 — fixture `reference` charset:** fixture-supplied references must satisfy
+  the same `^[A-Z0-9]{6,12}$` contract as service-minted references; invalid seeded
+  references are semantically invalid fixtures → 422 `validation_failed`. The ≤64-char
+  opaque-ID rule applies to ids, not to `reference`. Reversed at verifier R1: the
+  official suite rejects `x`, `lower01`, and `TOO-LONG-WITH-DASH`.
 
 ## Invariants to enforce at the gate (mandate §invariants)
 
