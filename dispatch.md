@@ -58,7 +58,10 @@ Configured seats, and no others:
   decisions.
 Standing instructions: each seat's mandate lives at
 D:\WED Dark factory\mandates\tk-<seat>.md — before anything else, read your
-own mandate file; it governs how you work for the entire run.
+own mandate file; it governs how you work for the entire run. In your first
+committed artifact, record the model id your session actually reports (e.g.
+`devin` session metadata) — the mandate header's requested model is `swe`;
+report the resolved value honestly so FACTORY.md cites reality.
 All four are already participants in this fresh room. Use `band brief --json`
 for your own identity. Exchange real handoffs via literal @handles. Each
 delegated handoff MUST paste the task's relevant complete instructions and the

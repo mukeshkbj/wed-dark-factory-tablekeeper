@@ -30,6 +30,9 @@ probe) — that line is intended.
 Seats (already in this room): @mukeshkbj/tk-coordinator (plan, gate, docs),
 @mukeshkbj/tk-engineer (implementation), @mukeshkbj/tk-experience (UI stage),
 @mukeshkbj/tk-verifier (independent checks, harness, gate verdicts).
+Standing instructions: each seat's mandate lives at
+D:\WED Dark factory\mandates\tk-<seat>.md — before anything else, read your
+own mandate file; it governs how you work for the entire run.
 Handoffs must mention the target seat by literal @handle and paste the
 complete task plus the complete applicable spec text. Agents see only
 messages that mention them. Commit with per-seat git identity, own files
