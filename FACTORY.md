@@ -1,6 +1,7 @@
 # FACTORY — dark factory `tablekeeper`
 
-> Draft scaffold — filled after the scored run with measured numbers.
+> Seat recipe and rehearsal findings below are final. The scored-run numbers
+> are filled after the run completes.
 
 ## Seats
 
@@ -58,9 +59,28 @@ Notes proven in rehearsal (`D:\band-work\toy-result`):
 - `band chat add` may print a decode error while membership actually succeeds —
   verify with `chat participants`, never blindly retry `chat new`.
 
-## Measured (filled post-run)
+## Rehearsal findings (toy track, `D:\band-work\toy-result`)
 
-- Wall time per stage, token usage and cost per seat (`band usage`)
+Rehearsed on the unscored `toy` track before the scored run — same four seats,
+same mandate mechanism, single dispatch. All four toy stages accepted in ~2h
+wall time, `claimed stage: 4`, cumulative 24/24 shipped checks green. What it
+proved and what it caught:
+
+- **Proved**: mention-routed handoffs, board-driven task flow, per-seat git
+  identities, frozen folders, copy-forward chain, verifier independence (it
+  caught a real stage-2 render bug the shipped suite missed).
+- **Caught — seat wake-loops**: keep-alive/acknowledgement messages wake seats
+  and burned ~140k tokens of engineer context; a `true`-poll turn stalled
+  stage-2 for ~25 min. Mandates now require: act only on work-carrying
+  messages, end turns, never poll in-turn, no keep-alives.
+- **Caught — self-healing**: coordinator diagnosed the stall, dispatched a
+  status-check, restarted the runtime, and re-dispatched — recovery path works.
+- **Caught — harness defect**: `--mode isolated` on Windows passes backslash
+  paths into the Linux runner (upstream bug); WSL2 harness path verified clean.
+
+## Scored run (filled post-run)
+
+- Wall time per stage, token usage and cost per seat: _TBD_
 - What review caught: _TBD_
 - What review missed: _TBD_
 - Accepted revisions per stage: _TBD_

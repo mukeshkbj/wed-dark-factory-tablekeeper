@@ -1,31 +1,35 @@
 # Dark Factory — Tablekeeper
 
-**Team:** `<team-name>` · **Track:** `tablekeeper` · WeAreDevelopers × BAND — Dark Factory (hackathon edition)
+**Team:** `mukeshkbj` · **Track:** `tablekeeper` · WeAreDevelopers × BAND — Dark Factory
 
-A software factory built in Band Desktop — four coding-agent seats that plan
-work, implement it, hand off evidence, and check their own results — and the
-clean-room reservation service that factory builds.
+This repository holds two things that belong together: a small software
+factory built in BAND Desktop — four coding-agent seats in one room that plan,
+build, and check each other's work — and the reservation service that factory
+produced, built clean-room from the official specification.
 
 ## How to read this repository
 
 | Path | What it is |
 |---|---|
-| [`PLAN.md`](PLAN.md) | Project plan: schedule, seats, risks, definition of done |
-| [`dispatch.md`](dispatch.md) | The single human task that ran the whole factory |
-| [`mandates/`](mandates/) | One standing instruction (role file) per seat |
-| `plan.md`, `architecture.json` | The room plan produced by the coordinator seat |
+| [`PLAN.md`](PLAN.md) | The project plan: seats, schedule, risks, definition of done |
+| [`dispatch.md`](dispatch.md) | The one human task that ran the whole factory |
+| [`mandates/`](mandates/) | One standing instruction file per seat — deliberately generic |
+| `plan.md`, `architecture.json` | The room plan written by the coordinator seat |
 | `stage-1/` … `stage-4/` | One complete, buildable service per stage |
-| `docs/` | Coverage matrices, `DEMO-RUNBOOK.md` |
+| `docs/` | Requirements coverage and `DEMO-RUNBOOK.md` |
 | `evidence/` | Harness reports per stage (public-safe) |
-| `FACTORY.md` | The factory story: seats, decisions, measurements, what it caught and missed |
-| `room.json` | The Band room log, exported after the run — the evidence the code came from the band |
+| [`FACTORY.md`](FACTORY.md) | How the factory actually ran — seats, decisions, what review caught |
+| `room.json` | The exported Band room — proof the seats did the work |
 
 ## Quick start
 
-Each stage folder carries its own `RUN.md` — one command builds and runs it:
+Every stage folder is self-contained: `Dockerfile`, `RUN.md`, source, tests.
+One command builds and runs it — the service listens on `0.0.0.0:$PORT`
+(default 8080) and needs no outbound network:
 
 ```sh
-cd stage-1 && docker build -t tablekeeper-s1 . && docker run -p 8080:8080 tablekeeper-s1
+cd stage-4 && docker build -t tablekeeper . && docker run -e PORT=8080 -p 8080:8080 tablekeeper
 ```
 
-(To be finalized once the official spec pins the port and env contract.)
+`GET /health` answers once the container is ready. `RUN.md` in each folder is
+the authoritative command.
