@@ -204,11 +204,15 @@ def _():
                                       "password": "long enough",
                                       "display_name": "X"}])), 422,
                  "validation_failed")
-    expect_error(reset(fixture(
-        reservations=[{"id": "r1", "reference": "R" * 65, "user_id": "u_ada",
-                       "restaurant_id": "r_anker", "table_id": "t_2",
-                       "starts_at_local": local(book_date()), "party_size": 2}])),
-        422, "validation_failed")
+    # Seeded references carry the same 6-12 A-Z0-9 contract as minted ones;
+    # the <=64-char opaque-id limit applies to ids, not references.
+    for bad_ref in ("x", "lower01", "TOO-LONG-WITH-DASH", "R" * 65):
+        expect_error(reset(fixture(
+            reservations=[{"id": "r1", "reference": bad_ref, "user_id": "u_ada",
+                           "restaurant_id": "r_anker", "table_id": "t_2",
+                           "starts_at_local": local(book_date()),
+                           "party_size": 2}])),
+            422, "validation_failed")
     expect(reset(), 204)
 
 
