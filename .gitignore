@@ -1,0 +1,21 @@
+# Secrets & raw exports (never commit token-bearing artifacts)
+*.key
+*.pem
+secrets/
+evidence/raw/
+room-export-raw*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (if UI uses a build step)
+node_modules/
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
