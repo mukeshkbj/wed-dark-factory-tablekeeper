@@ -1,0 +1,46 @@
+{
+  "kind": "layered",
+  "title": "Tablekeeper service architecture (per stage folder)",
+  "layers": [
+    {
+      "id": "edge",
+      "title": "Transport",
+      "items": [
+        { "id": "http_server", "label": "HTTP server 0.0.0.0:$PORT (stdlib ThreadingHTTPServer)" },
+        { "id": "router", "label": "Router + error envelope + auth/idempotency pipeline" },
+        { "id": "ui_routes", "label": "Server-rendered UI routes (stage 2+)" }
+      ]
+    },
+    {
+      "id": "domain",
+      "title": "Domain",
+      "items": [
+        { "id": "auth", "label": "auth.py: signup/login, tokens, scrypt (experience)" },
+        { "id": "availability", "label": "availability: slot grid, opening hours, overlaps" },
+        { "id": "reservations", "label": "reservations: create/patch/cancel/lookup, cutoffs" },
+        { "id": "moves", "label": "reservation-moves: atomic batch" },
+        { "id": "policies", "label": "policies + accepted terms + history (stage 3)" },
+        { "id": "series", "label": "recurring series + exceptions (stage 3-4)" },
+        { "id": "replan", "label": "closure replan: bounded optimal solver (stage 4)" },
+        { "id": "idempotency", "label": "idempotency ledger: key->(body,response)" }
+      ]
+    },
+    {
+      "id": "state",
+      "title": "State (single writer)",
+      "items": [
+        { "id": "store", "label": "store: SQLite, one connection, serialized by one lock" },
+        { "id": "fixtures", "label": "fixtures.py: /_test/reset parse+seed (experience)" },
+        { "id": "transfer", "label": "transfer: /_test/export + /_test/import atomic snapshot" },
+        { "id": "timeutil", "label": "timeutil: zoneinfo, DST resolve, half-open intervals" }
+      ]
+    }
+  ],
+  "flows": [
+    { "from": "http_server", "to": "router", "label": "request" },
+    { "from": "router", "to": "domain", "label": "pipeline: parse->auth->idempotency->validate->domain" },
+    { "from": "domain", "to": "store", "label": "all state ops under one lock (linearizable)" },
+    { "from": "fixtures", "to": "store", "label": "atomic replace" },
+    { "from": "transfer", "to": "store", "label": "atomic snapshot/replace" }
+  ]
+}

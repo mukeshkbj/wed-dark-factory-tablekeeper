@@ -132,11 +132,30 @@ to read its mandate file first; the file is both instruction and artifact.
 
 ## 10. Open decisions
 
-1. **Stack** — coordinator seat picks after reading spec §2 (recommendation:
-   Python + SQLite WAL + vendored deps; `zoneinfo` covers the IANA contract).
-2. **Public demo** — hardened deployment vs video-only.
+1. **Stack — RESOLVED (coordinator, scored run).** Python 3.12 stdlib-only:
+   `http.server` threading + `sqlite3` single connection serialized by one
+   re-entrant lock (linearizable by construction), `hashlib.scrypt` passwords,
+   `zoneinfo` IANA/DST, `secrets` references. Image `python:3.12-slim`,
+   `tzdata` vendored at build if needed. UI (stage 2+) server-rendered HTML +
+   vanilla JS, assets inline — no CDN, no runtime network.
+2. **Public demo** — hardened deployment vs video-only. `/_test` enabled in
+   judge image; hardened mode flag disables all test endpoints for any exposed
+   demo.
 3. **Model reporting** — `swe` requested; seats record actual resolved id on
-   first commit (see dispatch).
+   first commit under `docs/seats/`. Coordinator reports `SWE-2 High`.
+
+## 12. Scored run — live status
+
+| Stage | Folder | State |
+|---|---|---|
+| 1 | `stage-1/` | dispatched → engineer (core/domain/state/Dockerfile) + experience (auth/fixtures/tests/RUN.md); verifier deriving spec checks in parallel |
+| 2 | `stage-2/` | pending stage-1 acceptance |
+| 3 | `stage-3/` | pending |
+| 4 | `stage-4/` | pending |
+
+Coordinator artifacts: `docs/requirements-matrix-stage-1.md` (clause matrix +
+rulings), `docs/seats/` (per-seat model records), `architecture.json` (room
+diagram snapshot source).
 
 ## 11. Reference implementations studied
 
