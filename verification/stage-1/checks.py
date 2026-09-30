@@ -130,6 +130,16 @@ def next_grid(utc_dt, step=30):
 def grid_at(minutes_ahead):
     return next_grid(datetime.now(timezone.utc) + timedelta(minutes=minutes_ahead))
 
+def valid_grid_slot(off):
+    """First grid slot >= now+off that fits r_now hours (opens 00:00,
+    closes 23:59, dur 60 -> start <= 22:59; grid is :00/:30)."""
+    while True:
+        cand = grid_at(off)
+        hh, mm = int(cand[11:13]), int(cand[14:16])
+        if hh * 60 + mm <= 22 * 60 + 30:
+            return cand
+        off += 30
+
 def avail(rid, date, party):
     q = urllib.parse.urlencode({"restaurant_id":rid,"date":date,"party_size":party})
     return req("GET", "/availability?" + q)
@@ -202,8 +212,9 @@ def run():
     # wrong JSON type -> 400; after 4xx the key is reusable
     st, raw = req("POST", "/reservations", body={"restaurant_id":123,"table_id":"t_1","starts_at_local":"2026-09-24T18:00","party_size":2}, token=ada, key="k-typ1")
     expect_err("C-ER-2", "wrong JSON type field -> 400 malformed_request", st, raw, 400, "malformed_request")
-    st, raw = book(ada, "k-typ1", "r_anker", "t_1", "2026-09-24T18:00", 2)
+    st, raw = book(ada, "k-typ1", "r_now", "t_n2", grid_at(240), 2)
     check("C-IDM-3a", "key reusable after 4xx (400) -> processed as first use", st in (201,), "got %s %s" % (st, ecode(raw)))
+    ref_ktyp = (jb(raw) or {}).get("reference")
     # seed a used key then replay with different INVALID body -> 409 reuse beats validation
     st, raw = req("POST", "/reservations", body={"restaurant_id":123,"table_id":"t_2","starts_at_local":"2026-09-24T19:00","party_size":"x"}, token=ada, key="k-typ1")
     expect_err("C-PP-5", "used key + different invalid body -> 409 idempotency_key_reuse before validation", st, raw, 409, "idempotency_key_reuse")
@@ -331,8 +342,9 @@ def run():
     st, raw = req("GET", "/reservations", token=ada)
     lst = (jb(raw) or {}).get("reservations") or []
     starts = [r.get("starts_at") for r in lst]
-    check("C-LS-1", "list returns caller's reservations incl. all created", st == 200 and len(lst) == 4 and set(r.get("reference") for r in lst) == {ref1, ref2, ref_t1, ref_past}, "got %d refs" % len(lst))
-    check("C-LS-2", "list sorted starts_at descending", starts == sorted(starts, reverse=True), "got %r" % starts)
+    check("C-LS-1", "list returns caller's reservations incl. all created", st == 200 and len(lst) == 5 and set(r.get("reference") for r in lst) == {ref1, ref2, ref_t1, ref_past, ref_ktyp}, "got %d refs" % len(lst))
+    parsed = [datetime.fromisoformat(x) for x in starts]
+    check("C-LS-2", "list sorted starts_at descending (by instant)", parsed == sorted(parsed, reverse=True), "got %r" % starts)
     st, raw = req("GET", "/reservations", token=bob)
     check("C-LS-3", "other user's list empty {reservations:[]}", st == 200 and (jb(raw) or {}).get("reservations") == [])
     st, raw = req("GET", "/reservations/" + ref1, token=bob)
@@ -344,7 +356,7 @@ def run():
 
     # ---------- idempotency lifecycle ----------
     key = "k-idm-a"
-    body1 = {"restaurant_id":"r_anker","table_id":"t_1","starts_at_local":"2026-09-25T18:00","party_size":2}
+    body1 = {"restaurant_id":"r_anker","table_id":"t_1","starts_at_local":"2026-10-02T18:00","party_size":2}
     st, raw = req("POST", "/reservations", body=body1, token=ada, key=key)
     b1 = jb(raw)
     check("C-IDM-1a", "first use of key -> 201", st == 201, "got %s" % st)
@@ -355,13 +367,13 @@ def run():
     n = sum(1 for r in (jb(raw) or {}).get("reservations", []) if r.get("reference") == ref_idm)
     check("C-IDM-1c", "replay created no duplicate", n == 1)
     # key order/whitespace do not matter
-    reordered = json.dumps({"party_size":2,"starts_at_local":"2026-09-25T18:00","table_id":"t_1","restaurant_id":"r_anker"})
+    reordered = json.dumps({"party_size":2,"starts_at_local":"2026-10-02T18:00","table_id":"t_1","restaurant_id":"r_anker"})
     st, raw = req("POST", "/reservations", raw=reordered, token=ada, key=key)
     check("C-IDM-4", "reordered JSON keys still a replay -> 200 original", st == 200 and jb(raw) == b1, "got %s" % st)
     st, raw = req("POST", "/reservations", body={**body1, "party_size":2, "table_id":"t_2"}, token=ada, key=key)
     expect_err("C-IDM-2", "same key different body -> 409 idempotency_key_reuse", st, raw, 409, "idempotency_key_reuse")
     # different user, same key string -> independent
-    st, raw = req("POST", "/reservations", body={"restaurant_id":"r_anker","table_id":"t_2","starts_at_local":"2026-09-25T18:30","party_size":2}, token=bob, key=key)
+    st, raw = req("POST", "/reservations", body={"restaurant_id":"r_anker","table_id":"t_2","starts_at_local":"2026-10-02T18:30","party_size":2}, token=bob, key=key)
     check("C-IDM-6a", "same key string for another user -> independent 201", st == 201, "got %s %s" % (st, ecode(raw)))
     # same key + same body on a DIFFERENT path -> not a replay, must not be 409-reuse
     st, raw = req("POST", "/reservation-moves", body=body1, token=ada, key=key)
@@ -369,7 +381,7 @@ def run():
     # failed-4xx key treated as first use
     st, raw = book(ada, "k-fail1", "r_nope", "t_1", "2026-09-25T18:00", 2)
     assert st == 404
-    st, raw = book(ada, "k-fail1", "r_anker", "t_1", "2026-09-25T19:30", 2)
+    st, raw = book(ada, "k-fail1", "r_anker", "t_1", "2026-10-02T19:30", 2)
     check("C-IDM-3b", "key from 404 request reusable -> 201 first use", st == 201, "got %s %s" % (st, ecode(raw)))
     # replay after cancel returns ORIGINAL receipt
     st, raw = req("POST", "/reservations/%s/cancel" % ref_idm, token=ada)
@@ -379,19 +391,22 @@ def run():
     st, raw = req("GET", "/reservations/" + ref_idm, token=ada)
     check("C-IDM-8", "replay made no state change (still cancelled)", (jb(raw) or {}).get("status") == "cancelled", "got %r" % (jb(raw) or {}).get("status"))
     # key length boundaries
-    st, raw = book(ada, "K" * 255, "r_anker", "t_1", "2026-09-25T21:30", 2)
+    st, raw = book(ada, "K" * 255, "r_anker", "t_1", "2026-10-02T21:30", 2)
     check("C-IDM-9a", "255-char key accepted", st == 201, "got %s %s" % (st, ecode(raw)))
-    st, raw = book(ada, "K" * 256, "r_anker", "t_1", "2026-09-25T22:00", 2)
+    st, raw = book(ada, "K" * 256, "r_anker", "t_1", "2026-10-02T22:00", 2)
     expect_err("C-IDM-9b", "256-char key -> 422 validation_failed", st, raw, 422, "validation_failed")
 
     # ---------- cancel ----------
-    st, raw = req("POST", "/reservations/%s/cancel" % ref_t1, token=ada)
+    st, raw = book(ada, "k-cx1", "r_anker", "t_1", "2026-10-02T18:00", 2)
+    assert st == 201, (st, raw)
+    ref_cxl = (jb(raw) or {}).get("reference")
+    st, raw = req("POST", "/reservations/%s/cancel" % ref_cxl, token=ada)
     b = jb(raw) or {}
-    check("C-CN-1a", "cancel -> 200 status cancelled", st == 200 and b.get("status") == "cancelled" and b.get("reference") == ref_t1, "got %s %r" % (st, str(b)[:150]))
-    st, raw = avail("r_anker", "2026-09-24", 2)
-    sl = {s["starts_at_local"]: s["available_table_ids"] for s in (jb(raw) or {}).get("slots", [])}
-    check("C-CN-1b", "cancel frees table immediately (t_1 back at 19:00)", "t_1" in (sl.get("2026-09-24T19:00") or []), "got %r" % sl.get("2026-09-24T19:00"))
-    st, raw = req("POST", "/reservations/%s/cancel" % ref_t1, token=ada)
+    check("C-CN-1a", "cancel -> 200 status cancelled", st == 200 and b.get("status") == "cancelled" and b.get("reference") == ref_cxl, "got %s %r" % (st, str(b)[:150]))
+    st, raw = avail("r_anker", "2026-10-02", 2)
+    sl = {x["starts_at_local"]: x["available_table_ids"] for x in (jb(raw) or {}).get("slots", [])}
+    check("C-CN-1b", "cancel frees table immediately (t_1 back at 18:00)", "t_1" in (sl.get("2026-10-02T18:00") or []), "got %r" % sl.get("2026-10-02T18:00"))
+    st, raw = req("POST", "/reservations/%s/cancel" % ref_cxl, token=ada)
     check("C-CN-2", "cancel twice -> 200 current state (not an error)", st == 200 and (jb(raw) or {}).get("status") == "cancelled", "got %s" % st)
     st, raw = req("POST", "/reservations/%s/cancel" % ref1, token=bob)
     expect_err("C-CN-3", "cancel other user's -> 404", st, raw, 404, "not_found")
@@ -399,7 +414,6 @@ def run():
     expect_err("C-CN-4", "cancel unknown ref -> 404", st, raw, 404, "not_found")
     st, raw = req("POST", "/reservations/%s/cancel" % ref_past, token=ada)
     expect_err("C-CN-5a", "cancel past booking -> 409 cutoff_passed", st, raw, 409, "cutoff_passed")
-    # cutoff by real clock: near-future booking inside cutoff -> 409; far -> 200
     near = grid_at(65); far = grid_at(160)
     st, raw = book(ada, "k-cn-n", "r_now", "t_n1", near, 2)
     assert st == 201, (st, raw)
@@ -413,31 +427,34 @@ def run():
     check("C-CN-5c", "cancel beyond cutoff -> 200 cancelled", st == 200 and (jb(raw) or {}).get("status") == "cancelled", "got %s" % st)
 
     # ---------- PATCH ----------
-    st, raw = book(ada, "k-p1", "r_anker", "t_1", "2026-09-24T18:30", 2)
+    slot_p1 = grid_at(500); slot_p2 = grid_at(540); slot_occ = grid_at(580)
+    st, raw = book(ada, "k-p1", "r_now", "t_n1", slot_p1, 2)
     assert st == 201, (st, raw)
     bp = jb(raw) or {}
     refp, residp = bp.get("reference"), bp.get("reservation_id")
-    st, raw = req("PATCH", "/reservations/" + refp, body={"starts_at_local":"2026-09-24T18:00"}, token=ada)
+    st, raw = req("PATCH", "/reservations/" + refp, body={"starts_at_local":slot_p2}, token=ada)
     b = jb(raw) or {}
-    check("C-PT-1a", "PATCH time -> 200 updated, identity stable", st == 200 and b.get("starts_at_local") == "2026-09-24T18:00" and b.get("reference") == refp and b.get("reservation_id") == residp and b.get("created_at") == bp.get("created_at"), "got %s %r" % (st, str(b)[:160]))
-    st, raw = req("PATCH", "/reservations/" + refp, body={"table_id":"t_2","starts_at_local":"2026-09-25T21:00"}, token=ada)
-    check("C-PT-1b", "PATCH table+time -> 200", st == 200 and (jb(raw) or {}).get("table_id") == "t_2" and (jb(raw) or {}).get("starts_at_local") == "2026-09-25T21:00", "got %s %s" % (st, ecode(raw)))
+    check("C-PT-1a", "PATCH time -> 200 updated, identity stable", st == 200 and b.get("starts_at_local") == slot_p2 and b.get("reference") == refp and b.get("reservation_id") == residp and b.get("created_at") == bp.get("created_at"), "got %s %r" % (st, str(b)[:160]))
+    st, raw = req("PATCH", "/reservations/" + refp, body={"table_id":"t_n2"}, token=ada)
+    check("C-PT-1b", "PATCH table -> 200", st == 200 and (jb(raw) or {}).get("table_id") == "t_n2", "got %s %s" % (st, ecode(raw)))
     st, raw = req("PATCH", "/reservations/" + refp, body={"party_size":5})
     expect_err("C-PT-4b", "PATCH without token -> 401", st, raw, 401, "unauthenticated")
     st, raw = req("PATCH", "/reservations/" + refp, body={"party_size":5}, token=ada)
-    expect_err("C-PT-2a", "PATCH invalid (party>cap) -> 422, original unchanged", st, raw, 422, "party_exceeds_capacity")
+    expect_err("C-PT-2a", "PATCH invalid (party>cap) -> 422 party_exceeds_capacity", st, raw, 422, "party_exceeds_capacity")
     st, raw = req("GET", "/reservations/" + refp, token=ada)
     b = jb(raw) or {}
-    check("C-PT-2b", "failed PATCH left original unchanged", b.get("party_size") == 2 and b.get("table_id") == "t_2" and b.get("starts_at_local") == "2026-09-25T21:00", "got %r" % str(b)[:150])
-    st, raw = req("PATCH", "/reservations/" + refp, body={"starts_at_local":"2026-09-24T19:00"}, token=ada)
+    check("C-PT-2b", "failed PATCH left original unchanged", b.get("party_size") == 2 and b.get("table_id") == "t_n2" and b.get("starts_at_local") == slot_p2, "got %r" % str(b)[:150])
+    st, raw = book(ada, "k-p2", "r_now", "t_n1", slot_occ, 2)
+    assert st == 201, (st, raw)
+    st, raw = req("PATCH", "/reservations/" + refp, body={"table_id":"t_n1","starts_at_local":slot_occ}, token=ada)
     expect_err("C-PT-3a", "PATCH into occupied slot -> 409 table_unavailable", st, raw, 409, "table_unavailable")
-    st, raw = req("PATCH", "/reservations/" + refp, body={"starts_at_local":"2026-09-25T21:00"}, token=ada)
+    st, raw = req("PATCH", "/reservations/" + refp, body={"starts_at_local":slot_p2}, token=ada)
     check("C-PT-3b", "no-op PATCH (self-overlap excluded) -> 200", st == 200, "got %s %s" % (st, ecode(raw)))
     st, raw = req("PATCH", "/reservations/" + ref1, token=bob, body={"party_size":1})
     expect_err("C-PT-4c", "PATCH other user's -> 404", st, raw, 404, "not_found")
     st, raw = req("PATCH", "/reservations/" + ref_past, token=ada, body={"party_size":3})
     expect_err("C-PT-5a", "PATCH past booking -> 409 cutoff_passed", st, raw, 409, "cutoff_passed")
-    st, raw = req("PATCH", "/reservations/" + ref_t1, token=ada, body={"party_size":1})
+    st, raw = req("PATCH", "/reservations/" + ref_cxl, token=ada, body={"party_size":1})
     expect_err("C-PT-5b", "PATCH cancelled -> 409 reservation_cancelled", st, raw, 409, "reservation_cancelled")
 
     # ---------- reservation moves ----------
@@ -450,7 +467,7 @@ def run():
     refB = (jb(raw) or {}).get("reference"); assert st == 201, (st, raw)
     st, raw = book(ada, "k-mC", "r_ny", "t_a", "2026-11-01T00:30", 2)
     refC = (jb(raw) or {}).get("reference"); assert st == 201, (st, raw)
-    st, raw = book(bob, "k-mD", "r_anker", "t_1", "2026-10-01T20:30", 2)
+    st, raw = book(bob, "k-mD", "r_anker", "t_1", "2026-10-02T18:00", 2)
     refD = (jb(raw) or {}).get("reference"); assert st == 201, (st, raw)
 
     st, raw = req("POST", "/reservation-moves", body={"moves":[{"reference":refA,"table_id":"t_2"}]}, token=ada)
@@ -485,7 +502,7 @@ def run():
     check("C-MV-9a", "replay batch -> 200 identical body", st == 200 and jb(raw) == b, "got %s" % st)
 
     # failed batch -> all-or-nothing + key reusable
-    st, raw = book(ada, "k-mE", "r_anker", "t_2", "2026-10-01T21:00", 2)
+    st, raw = book(ada, "k-mE", "r_anker", "t_2", "2026-10-01T19:30", 2)
     refE = (jb(raw) or {}).get("reference"); assert st == 201, (st, raw)
     beforeA = req("GET", "/reservations/" + refA, token=ada)[1]
     st, raw = mv("k-mv-fail", [{"reference":refE,"table_id":"t_2","starts_at_local":"2026-10-01T19:30"},{"reference":refA,"party_size":99}])
@@ -493,12 +510,12 @@ def run():
     check("C-MV-6a", "batch item error surfaces (input order): item2 party>cap -> 422", st == 422 and code_fail == "party_exceeds_capacity", "got %s code=%s" % (st, code_fail))
     afterA = req("GET", "/reservations/" + refA, token=ada)[1]
     afterE = req("GET", "/reservations/" + refE, token=ada)[1]
-    check("C-MV-8a", "failed batch changed nothing (item1 not committed)", jb(beforeA) == jb(afterA) and (jb(afterE) or {}).get("table_id") == "t_2" and (jb(afterE) or {}).get("starts_at_local") == "2026-10-01T21:00", "E=%r" % str(jb(afterE))[:160])
+    check("C-MV-8a", "failed batch changed nothing (item1 not committed)", jb(beforeA) == jb(afterA) and (jb(afterE) or {}).get("table_id") == "t_2" and (jb(afterE) or {}).get("starts_at_local") == "2026-10-01T19:30", "E=%r" % str(jb(afterE))[:160])
     st, raw = mv("k-mv-fail", [{"reference":refE,"party_size":2}])
     check("C-MV-8b", "failed batch key reusable -> processed fresh", st == 201, "got %s %s" % (st, ecode(raw)))
 
     # occupancy overlap with unlisted booking -> 409 table_unavailable
-    st, raw = mv("k-mv-ov", [{"reference":refE,"starts_at_local":"2026-10-01T20:00"}])
+    st, raw = mv("k-mv-ov", [{"reference":refE,"table_id":"t_1","starts_at_local":"2026-10-01T20:00"}])
     expect_err("C-MV-7a", "move into overlap with unlisted booking -> 409 table_unavailable", st, raw, 409, "table_unavailable")
     st, raw = mv("k-mv-ov2", [{"reference":refE,"starts_at_local":"2026-10-01T18:30","table_id":"t_2"}])
     expect_err("C-MV-7b", "move onto t_2 overlapping swapped A (18:30 vs 18:00+90) -> 409", st, raw, 409, "table_unavailable")
@@ -507,7 +524,7 @@ def run():
     # no-op move retains values
     st, raw = mv("k-mv-noop", [{"reference":refE}])
     b = jb(raw) or {}
-    check("C-MV-9b", "no-op move -> 201 unchanged values", st == 201 and (b.get("reservations") or [{}])[0].get("starts_at_local") == "2026-10-01T21:00", "got %s %r" % (st, str(b)[:160]))
+    check("C-MV-9b", "no-op move -> 201 unchanged values", st == 201 and (b.get("reservations") or [{}])[0].get("starts_at_local") == "2026-10-01T19:30", "got %s %r" % (st, str(b)[:160]))
     # cancelled member -> 409
     st, raw = req("POST", "/reservations/%s/cancel" % refB, token=ada)
     assert st == 200, (st, raw)
@@ -582,7 +599,7 @@ def run():
     st, raw2 = req("GET", "/_test/export")
     check("C-XF-1b", "second export equal snapshot (read-only)", jb(raw2) == exp)
     # post-export write must NOT be inside earlier snapshot
-    st, raw = book(ada, "k-post-exp", "r_anker", "t_2", "2026-10-01T19:30", 2)
+    st, raw = book(ada, "k-post-exp", "r_anker", "t_2", "2026-10-01T21:30", 2)
     ref_post = (jb(raw) or {}).get("reference")
     check("C-XF-1c", "post-export write succeeded (to prove snapshot isolation)", st == 201, "got %s" % st)
     ada_pre = ada  # token captured before import
@@ -637,7 +654,7 @@ def run():
     _, bob, _ = login("bob@example.com", "bobs secret9")
 
     # ---------- concurrency ----------
-    slot = grid_at(300)
+    slot = valid_grid_slot(300)
     N = 50
     out = [None] * N
     barrier = threading.Barrier(N)
@@ -657,7 +674,7 @@ def run():
     n_at_slot = sum(1 for r in (jb(raw) or {}).get("reservations", []) if r.get("starts_at_local") == slot and r.get("table_id") == "t_n1")
     check("C-CON-1b", "race effected exactly one reservation", n_at_slot == 1, "got %d" % n_at_slot)
 
-    slot2 = grid_at(330)
+    slot2 = valid_grid_slot(360)
     M = 20
     out = [None] * M
     barrier = threading.Barrier(M)
@@ -698,6 +715,25 @@ def run():
         elif s_ >= 400 and ecode(r_) is None:
             bad = False; det.append((m, p, s_, "no error.code", str(r_)[:80]))
     check("C-FZ-1", "fuzz sweep: no 5xx, all 4xx carry error.code", bad, det[:6])
+
+    # ---------- keep-alive: one connection, several bodies ----------
+    import http.client
+    hostport = BASE.split("://", 1)[1].split("/")[0]
+    h, _, prt = hostport.partition(":")
+    conn = http.client.HTTPConnection(h, int(prt or 80))
+    conn.request("POST", "/auth/login", json.dumps({"email":"ada@example.com","password":"adas secret9"}),
+                 {"Content-Type": "application/json"})
+    r1 = conn.getresponse(); b1 = r1.read(); st1 = r1.status
+    conn.request("POST", "/reservations",
+                 json.dumps({"restaurant_id":"r_anker","table_id":"t_3",
+                             "starts_at_local":"2026-10-04T18:00","party_size":2}),
+                 {"Content-Type": "application/json",
+                  "Authorization": "Bearer " + ada,
+                  "Idempotency-Key": "k-keepalive-1"})
+    r2 = conn.getresponse(); b2 = r2.read(); st2 = r2.status
+    check("C-KA-1", "keep-alive: 2nd request on one conn uses its own body -> 201",
+          st1 == 200 and st2 == 201, "login=%s post=%s body=%s" % (st1, st2, b2[:120]))
+    conn.close()
 
     dt = time.time() - t0
     fails = [r for r in RESULTS if not r[2]]
