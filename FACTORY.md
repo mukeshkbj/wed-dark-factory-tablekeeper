@@ -6,10 +6,10 @@
 
 | Seat | Harness | Model | Owns |
 |---|---|---|---|
-| `tk-coordinator` | Codex | `<exact id>` | spec → requirements matrix, plan, task board, gate, this file's inputs |
-| `tk-engineer` | Codex | `<exact id>` | domain implementation, atomic state, Dockerfile |
-| `tk-experience` | Codex | `<exact id>` | UI surface, manager screens, demo assets |
-| `tk-verifier` | Codex | `<exact id>` | spec-derived checks, official harness, acceptance verdicts |
+| `tk-coordinator` | Devin (ACP) | `swe` | spec → requirements matrix, plan, task board, gate, this file's inputs |
+| `tk-engineer` | Devin (ACP) | `swe` | domain implementation, atomic state, Dockerfile |
+| `tk-experience` | Devin (ACP) | `swe` | UI surface, manager screens, demo assets |
+| `tk-verifier` | Devin (ACP, `--agent-type review`) | `swe` | spec-derived checks, official harness, acceptance verdicts |
 
 ## Design choices
 

@@ -118,7 +118,8 @@ All four run the same harness + model — differentiation is the mandate, not th
 | Harness venv `D:\tk-official\.venv` | ✅ `python -m harness` works |
 | Playwright chromium | ✅ installed |
 | Docker daemon | ⚠️ **Docker Desktop not running — start it before harness runs** |
-| Codex CLI 0.44.0 | ✅ installed, ChatGPT login |
+| Codex CLI 0.44.0 | ✅ installed, ChatGPT login (fallback runtime) |
+| Devin CLI 3000.11.3 | ✅ `devin acp --model swe` — seat runtime via Band "ACP agent → Custom command" |
 | Band account | ✅ @mukeshkbj signed in, no agents yet |
 | WSL2 | ✅ available if needed (guide suggests it on Windows; native venv already works) |
 
@@ -129,8 +130,9 @@ All four run the same harness + model — differentiation is the mandate, not th
    alternative. Coordinator seat decides after reading spec §2.
 2. **Public demo** — optional hardened deployment vs. video-only.
 3. **Team name / app title** for lablab + README.
-4. **Model id** — fill each mandate's `Model:` line with the exact id Band
-   shows when creating the seats (same for all four).
+4. **Model id** — mandates say `Model: swe` (family alias). After the first
+   seat exists, confirm the resolved id and Harness label as Band displays
+   them; adjust if Band shows something else (e.g. `ACP`).
 
 ## 11. Reference implementations studied
 
