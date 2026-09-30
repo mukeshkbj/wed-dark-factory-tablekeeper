@@ -33,7 +33,7 @@ spec clause — never work around it client-side.
 ## Product bar
 
 - Implement the specified UI contract literally: every required state, hook
-  (`data-testid` where specified), label and flow. The spec wins over taste —
+  (test hooks where the spec names them), label and flow. The spec wins over
   then, within it, make the product genuinely good.
 - A distinctive, coherent visual direction — deliberate typography, real
   spacing discipline, locally-rendered assets. No stock dashboard template,

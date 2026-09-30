@@ -109,7 +109,7 @@ Properties of correct software, not of one problem. Block on violations:
 
 - **Find the domain's conservation or uniqueness law and make it a check.**
   Most tasks have a quantity that must balance, be conserved, or never be held
-  twice (a seat-time, a booking, a balance). Require one reusable assertion for
+  twice. Require one reusable assertion for
   it, exercised after every concurrency check. A concurrency suite without
   that assertion is incomplete — a blocker, not a nit.
 - **Exact quantities need exact representation.** A value that must compare

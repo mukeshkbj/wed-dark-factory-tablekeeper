@@ -45,11 +45,11 @@ All four run the same harness + model — differentiation is the mandate, not th
 
 | Day | Workstream |
 |---|---|
-| **Sep 30 (today)** | Spec kit path from user → read participant-guide + 4 specs → requirements matrix v0 → mandates + dispatch skeleton → repo scaffold → create 4 agents in Band (Role=mandate file, Runtime=Codex, workdir=this repo) → room `dark-factory-tablekeeper` + attach plan |
-| **Oct 1 AM** | **Rehearsal:** dispatch stage-1 only. Verify @routing, task board, git identities, harness executes, token cost via `band usage`. Patch mandates. |
-| **Oct 1 PM – Oct 3** | **Full run:** single dispatch, stages 1→4. Per stage: matrix → impl → UI (s2+) → verifier gate (own checks + harness N + inherited + `--mode isolated`) → freeze → copy folder forward. |
-| **Oct 3–4** | Final `harness run --all --mode isolated` + clean-clone verify → export `room.json` → FACTORY.md with measurements → README/LICENSE/DEMO-RUNBOOK → optional hardened public demo + 3-min video + PDF |
-| **Oct 4–5** | Submit on lablab. Oct 5 reserved as buffer for one re-run or fixes. |
+| **Sep 30 (today)** | ✅ Kit cloned `D:\tk-official` @ `803560d` · ✅ harness venv + chromium installed · ✅ mandates + dispatch + scaffold committed → **User: Band setup (below)** |
+| **Oct 1 AM** | **Toy rehearsal** (`dispatch-toy.md`, repo `D:\band-work\toy-result`): proves @routing, board, git identities, harness, `harness check` gates 1+2, token cost. The toy is unscored — iterate freely here. |
+| **Oct 1 PM – Oct 3** | **Scored run**: fresh room, seats' workdir = `D:\WED Dark factory`, paste `dispatch.md` once — the ONLY human input allowed. Stages 1→4 with verifier gate per stage. |
+| **Oct 3–4** | Final `--all --mode isolated` + fresh-clone `harness check` → `room.json` export (Band console → Download full session) → fill FACTORY.md → video **with room recording** (required) + PDF |
+| **Oct 4–5** | Submit repo URL + presentation + video on lablab. Oct 5 23:59 PDT hard close. |
 
 ## 5. Engineering requirements (Tablekeeper, from proven dispatch)
 
@@ -89,15 +89,50 @@ All four run the same harness + model — differentiation is the mandate, not th
 - [ ] Folder frozen at a named commit; Dockerfile builds clean; RUN.md accurate
 - [ ] Original commits preserved (no squash/amend/rebase)
 
-## 8. Open decisions
+## 8. Hard rules (from the official participant guide — DQs)
 
-1. **Stack** — recommendation: Python 3.12 + SQLite WAL + vendored deps (`zoneinfo`
-   for DST). Alternative: Go single binary. Decide at kickoff after reading spec §2.
-2. **Public demo** — optional hardened deployment (no `/_test`) vs. video-only demo.
-3. **Team name / app title / credit name** for lablab + FACTORY.md.
-4. **Band handle prefix** for seat naming (`@you/tk-*`).
+- **Mandates must be generic** — no track vocabulary (endpoints, fields, error
+  codes). Track detail lives only in the dispatched task. ✅ enforced in ours.
+- **The scored run is hands-off**: the dispatch is the only human input; no
+  steering, approvals, hints or reruns. Develop/rehearse freely BEFORE it —
+  the submitted run happens in a fresh room.
+- **Hand-built stage code doesn't count** — `stage-N/` commits must come from
+  seats, traceable to the room log. Operator may commit mandates/README/docs.
+- **room.json** = full session download from Band console (room ⋮ → Open in
+  Band → ⋮ → Download full session), committed unchanged.
+- **Video must show the Band room** (the room, a handoff, the result).
+- **Mandate files named after the seat as the room shows it**; each must carry
+  `Harness:` and `Model:` (exact id) lines — fill real model ids at agent
+  creation.
+- **Stage claiming**: stage-N passes ≥half of every suite 1..N AND must not
+  pass all of suite N+1 (overshoot = misplaced answer, earns nothing).
+- `harness check` runs gates 1+2+4 offline — run it before every push.
+- Help: BAND Discord (discord.com/invite/5YkNXmYfjk) for Band/harness;
+  lablab Discord for event/platform. Spec ambiguities → ask, answered publicly.
 
-## 9. Reference implementations studied
+## 9. Environment status
+
+| Need | State |
+|---|---|
+| Kit `D:\tk-official` @ 803560d | ✅ cloned, pristine |
+| Harness venv `D:\tk-official\.venv` | ✅ `python -m harness` works |
+| Playwright chromium | ✅ installed |
+| Docker daemon | ⚠️ **Docker Desktop not running — start it before harness runs** |
+| Codex CLI 0.44.0 | ✅ installed, ChatGPT login |
+| Band account | ✅ @mukeshkbj signed in, no agents yet |
+| WSL2 | ✅ available if needed (guide suggests it on Windows; native venv already works) |
+
+## 10. Open decisions
+
+1. **Stack** — recommendation: Python 3.12 + SQLite WAL + vendored deps
+   (`zoneinfo` covers the IANA/DST contract). Go single binary is the
+   alternative. Coordinator seat decides after reading spec §2.
+2. **Public demo** — optional hardened deployment vs. video-only.
+3. **Team name / app title** for lablab + README.
+4. **Model id** — fill each mandate's `Model:` line with the exact id Band
+   shows when creating the seats (same for all four).
+
+## 11. Reference implementations studied
 
 - `shi1720/WeAreDevelopers` — Tablekeeper, 4 seats, all stages accepted
   (120/145/152/158 checks). Source of seat set, dispatch shape, module map.

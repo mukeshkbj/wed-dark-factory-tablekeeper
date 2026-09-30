@@ -2,11 +2,11 @@
 DISPATCH — the single human task that starts the autonomous factory run.
 Fill <PLACEHOLDERS> after the official kit is on disk and the room exists.
 Paste this whole file (minus this comment) as the room's first message,
-mentioning @<OWNER>/tk-coordinator.
+mentioning @mukeshkbj/tk-coordinator.
 Proven shape adapted from a 4-stage Tablekeeper run that passed all gates.
 -->
 
-@<OWNER>/tk-coordinator
+@mukeshkbj/tk-coordinator
 
 This is the single production dispatch for all four stages of our hackathon
 entry. Build TABLEKEEPER sequentially through stages 1, 2, 3 and 4, strictly to
@@ -27,30 +27,32 @@ the required clean-room reservation service and a warm, exceptionally usable
 restaurant experience. The stage-4 closure-replanning capability is the
 differentiator: show a manager the smallest safe seating change and apply it
 atomically while preserving guests' times and accepted terms.
-Team owner: <HUMAN NAME>, product direction and factory configuration. Credit
+Team owner: Mukesh Agrawal, product direction and factory configuration. Credit
 the agent seats for implementation/verification honestly. Do not invent
 personal manual coding, customers, revenue, benchmarks or certifications.
 
-Workspace/result repository (shared by all seats): <ABS PATH — D:\WED Dark factory>
-Official immutable kickoff checkout: <ABS PATH — e.g. D:\tk-official>
-Official commit: <COMMIT SHA>
-Official participant guide: <KIT>/docs/participant-guide.md
-Full specifications: <KIT>/tablekeeper/spec/stage-1.md through stage-4.md
-Harness python: <KIT VENV PYTHON PATH>
-Run harness commands from <KIT>, specifying the absolute result repo and a NEW
-output directory every run. Store public-safe evidence under result/evidence;
+Workspace/result repository (shared by all seats): D:\WED Dark factory
+Official immutable kickoff checkout: D:\tk-official
+Official commit: 803560d2a678ace1414465c098eb0ab5380ffade
+Official participant guide: D:\tk-official\docs\participant-guide.md
+Full specifications: D:\tk-official\tablekeeper\spec\stage-1.md through stage-4.md
+Harness: run from D:\tk-official as
+  D:\tk-official\.venv\Scripts\python.exe -m harness run --track tablekeeper \
+    --repo "D:\WED Dark factory" --stage <N> --out <NEW absolute out dir>
+Add `--mode isolated` for acceptance runs, `--all` for the final sweep.
+Each run needs a NEW output directory (existing dirs are refused). Store public-safe evidence under result/evidence;
 keep raw exports containing tokens private outside the repository.
 Dependencies may be downloaded during build; runtime MUST have no outbound
 network. Do not change official harness/tests or use another contestant's code.
 
 Configured seats, and no others:
-- @<OWNER>/tk-coordinator (<agent id>): planning, delegation, acceptance,
+- @mukeshkbj/tk-coordinator (<agent id>): planning, delegation, acceptance,
   factory documentation.
-- @<OWNER>/tk-engineer (<agent id>): domain implementation, atomic state,
+- @mukeshkbj/tk-engineer (<agent id>): domain implementation, atomic state,
   deployment.
-- @<OWNER>/tk-experience (<agent id>): substantive implementation contribution
+- @mukeshkbj/tk-experience (<agent id>): substantive implementation contribution
   in stage 1, then product UI, manager workflow and demo assets.
-- @<OWNER>/tk-verifier (<agent id>): independent spec-derived tests,
+- @mukeshkbj/tk-verifier (<agent id>): independent spec-derived tests,
   adversarial checks, isolated official harness, gate decisions.
 All four are already participants in this fresh room. Use `band brief --json`
 for your own identity. Exchange real handoffs via literal @handles. Each
@@ -117,10 +119,12 @@ acceptance freeze the folder and advance. If a later-stage check reveals a
 genuine earlier-stage contract bug, coordinate a spec-grounded correction and
 reverify affected folders; do not retrofit future-stage features.
 
-At completion: run official `harness run --track tablekeeper --repo
-<ABS REPO> --all --mode isolated` with new evidence output; independently
-verify a clean clone; run offline `harness check` (room.json is exported by
-the operator after the run, so report that expected pending gate honestly).
+At completion: run official `python -m harness run --track tablekeeper --repo
+"D:\WED Dark factory" --all --mode isolated` (from D:\tk-official, venv python)
+with new evidence output; independently verify a clean clone; run offline
+`python -m harness check "D:\WED Dark factory" --track tablekeeper` (room.json
+is exported by the operator after the run, so report that expected pending
+gate honestly).
 Keep only completed stage folders in the submission; preserve incomplete work
 outside them if needed. Supply README.md, FACTORY.md (enough to reproduce seat
 setup and run; measured time/tokens/cost with unknowns labelled; failure

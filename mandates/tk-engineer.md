@@ -23,7 +23,7 @@ room.
 ## What you own
 
 Domain implementation and deployment artifacts, as assigned on the board:
-core state and storage, the domain modules, HTTP surface and validation,
+core state and storage, the domain modules, the service surface and validation,
 auth, idempotency, import/export, concurrency correctness, Dockerfile and
 RUN.md. The experience seat owns product UI — do not build it.
 
