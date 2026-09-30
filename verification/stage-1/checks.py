@@ -686,7 +686,7 @@ def run():
     ths = [threading.Thread(target=worker2, args=(i,)) for i in range(M)]
     [t.start() for t in ths]; [t.join() for t in ths]
     sts = [o[0] for o in out]
-    n201 = sum(1 for s in sts if s == 201); n409 = sum(1 for s in sts if s == 409 and ecode(o[1][0] if False else "") is None or s == 409 for s in sts)
+    n201 = sum(1 for s in sts if s == 201); n409 = sum(1 for s in sts if s == 409)
     n5xx = sum(1 for s in sts if s >= 500)
     check("C-CON-2", "20-way same-table-slot race: exactly one 201, rest 409, no 5xx",
           n201 == 1 and n409 == M - 1 and n5xx == 0,
@@ -721,12 +721,12 @@ def run():
     hostport = BASE.split("://", 1)[1].split("/")[0]
     h, _, prt = hostport.partition(":")
     conn = http.client.HTTPConnection(h, int(prt or 80))
-    conn.request("POST", "/auth/login", json.dumps({"email":"ada@example.com","password":"adas secret9"}),
+    conn.request("POST", "/auth/login", json.dumps({"email":"ada@example.com","password":"correct horse"}),
                  {"Content-Type": "application/json"})
     r1 = conn.getresponse(); b1 = r1.read(); st1 = r1.status
     conn.request("POST", "/reservations",
-                 json.dumps({"restaurant_id":"r_anker","table_id":"t_3",
-                             "starts_at_local":"2026-10-04T18:00","party_size":2}),
+                 json.dumps({"restaurant_id":"r_anker","table_id":"t_2",
+                             "starts_at_local":"2026-10-02T18:00","party_size":2}),
                  {"Content-Type": "application/json",
                   "Authorization": "Bearer " + ada,
                   "Idempotency-Key": "k-keepalive-1"})
