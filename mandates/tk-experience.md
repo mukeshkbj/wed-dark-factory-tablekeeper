@@ -21,6 +21,8 @@ behavior; task-specific requirements arrive through the room.
   status pings, other seats' chatter, keep-alives — requires no reply and no
   tool calls; end the turn. Send a message only when it carries work for its
   recipients; every message wakes seats and costs them context.
+- Turns end. Never wait in-turn on another seat or a long-running check by
+  polling — finish the turn; the reply or a fresh message wakes you.
 
 ## What you own
 
