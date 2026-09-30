@@ -207,6 +207,9 @@ class Handler(BaseHTTPRequestHandler):
         raise ApiError(404, "not_found", "no such route")
 
     def _handle(self):
+        # One Handler instance serves every request on a keep-alive
+        # connection; drop the cached body so each request reads its own.
+        self.__dict__.pop("_body", None)
         try:
             # Always drain the request body first so a keep-alive connection
             # stays aligned regardless of whether the route consumes it.
