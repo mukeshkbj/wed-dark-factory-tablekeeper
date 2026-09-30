@@ -205,7 +205,7 @@ def _():
                                       "display_name": "X"}])), 422,
                  "validation_failed")
     expect_error(reset(fixture(
-        reservations=[{"id": "r1", "reference": "bad-ref", "user_id": "u_ada",
+        reservations=[{"id": "r1", "reference": "R" * 65, "user_id": "u_ada",
                        "restaurant_id": "r_anker", "table_id": "t_2",
                        "starts_at_local": local(book_date()), "party_size": 2}])),
         422, "validation_failed")
@@ -345,7 +345,10 @@ def _():
                for s in body["slots"]}
     for t in ("18:00", "18:30", "19:00", "19:30", "20:00"):
         want("t_2" not in by_time[t], f"t_2 still offered at {t}")
-    want("t_2" in by_time["20:30"], "adjacent slot must be free")
+    # t_3 ends at 20:30 exactly: a half-open occupancy means the 20:30 slot
+    # must offer it again, while t_2 is now booked at 20:30 itself.
+    want("t_3" in by_time["20:30"], "adjacent slot must be free")
+    want("t_2" not in by_time["20:30"], "t_2 is occupied at 20:30")
 
 
 @check("booking validation precedence")
@@ -630,12 +633,13 @@ def _():
     expect_error(req("POST", "/reservation-moves",
                      body={"moves": [{"reference": "NOPE12"}]},
                      token=token, key=new_key()), 404, "not_found")
-    # Two bookings swapped onto each other's tables in one batch.
+    # Two bookings swapped onto each other's tables in one batch: each one's
+    # new table is the other's old table, freed by the same batch.
     r3 = expect(book(token, date, "18:00", table_id="t_2", party_size=2),
                 201)["reference"]
-    r4 = expect(book(token, date, "18:00", table_id="t_1", party_size=2),
+    r4 = expect(book(token, date, "18:00", table_id="t_3", party_size=2),
                 201)["reference"]
-    swap = {"moves": [{"reference": r3, "table_id": "t_1"},
+    swap = {"moves": [{"reference": r3, "table_id": "t_3"},
                       {"reference": r4, "table_id": "t_2"}]}
     expect(req("POST", "/reservation-moves", body=swap, token=token,
                key=new_key()), 201)

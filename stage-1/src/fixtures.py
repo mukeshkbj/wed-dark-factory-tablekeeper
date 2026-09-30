@@ -31,7 +31,6 @@ _WEEKDAYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
 _HHMM_RE = re.compile(r"^([01][0-9]|2[0-3]):([0-5][0-9])$")
 _LOCAL_RE = re.compile(
     r"^(\d{4})-(\d{2})-(\d{2})T([01][0-9]|2[0-3]):([0-5][0-9])$")
-_REFERENCE_RE = re.compile(r"^[A-Z0-9]{6,12}$")
 
 
 @dataclass
@@ -232,9 +231,6 @@ def _parse_reservations(raw: list, user_ids: set, restaurants: list) -> list:
             _invalid("reservation: missing field party_size")
         party_size = item["party_size"]
         status = item.get("status", "confirmed")
-
-        if not _REFERENCE_RE.match(reference):
-            _invalid(f"reservation {rid}: bad reference {reference!r}")
         if not _valid_local_time(starts_at_local):
             _invalid(f"reservation {rid}: bad starts_at_local {starts_at_local!r}")
         if isinstance(party_size, bool) or not isinstance(party_size, int) or party_size < 1:
