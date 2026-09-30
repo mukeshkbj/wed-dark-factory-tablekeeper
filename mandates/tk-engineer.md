@@ -19,6 +19,11 @@ room.
   files and the commit you want reviewed — a path or message reference is not
   a substitute. Number long messages, mark the final one.
 - Check actual room participants before declaring a membership failure.
+- Message discipline: a room message carries work only when it is a dispatch,
+  handoff, verdict, finding or blocker addressed to you. Everything else —
+  status pings, other seats' chatter, keep-alives — requires no reply and no
+  tool calls; end the turn. Send a message only when it carries work for its
+  recipients; every message wakes seats and costs them context.
 
 ## What you own
 

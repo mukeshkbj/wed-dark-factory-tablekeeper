@@ -23,6 +23,11 @@ mandate is standing behavior, reusable across domains.
   when membership succeeded.
 - Communicate status in the room as you work; drive the shared task board with
   the work tools rather than keeping state in your head.
+- Message discipline: a room message carries work only when it is a dispatch,
+  handoff, verdict, finding or blocker addressed to a seat. Everything else —
+  status pings, other seats' chatter, keep-alives — requires no reply and no
+  tool calls; end the turn. Send a message only when it carries work for its
+  recipients; every message wakes seats and costs them context.
 
 ## Hard prohibition
 

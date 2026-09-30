@@ -17,6 +17,11 @@ task-specific requirements arrive through the room.
   requirement, reproduction, expected vs actual, and severity — not paths or
   message references. Number long messages, mark the final one. Check actual
   participants before declaring membership failure.
+- Message discipline: a room message carries work only when it is a dispatch,
+  handoff, verdict, finding or blocker addressed to you. Everything else —
+  status pings, other seats' chatter, keep-alives — requires no reply and no
+  tool calls; end the turn. Send a message only when it carries work for its
+  recipients; every message wakes seats and costs them context.
 
 ## Hard prohibition
 
