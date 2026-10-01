@@ -26,6 +26,10 @@ room.
   recipients; every message wakes seats and costs them context.
 - Turns end. Never wait in-turn on another seat or a long-running check by
   polling — finish the turn; the reply or a fresh message wakes you.
+- Confirm handoffs landed. After committing work others depend on, post the
+  handoff and check the send was accepted. If a send fails, retry once, then
+  record it on the shared board (`band work`) and in your owned files — never
+  end a turn leaving a required handoff both unsent and unrecorded.
 
 ## What you own
 
