@@ -11,7 +11,8 @@ try:
 except ImportError:
     import _stub_timeutil as timeutil
 
-_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+_DIGITS_RE = re.compile(r"^[0-9]+$")
 
 
 def list_restaurants():
@@ -47,7 +48,7 @@ def search(query):
         datetime.strptime(date, "%Y-%m-%d")
     except ValueError:
         raise ApiError(422, "validation_failed", "invalid date")
-    if not party_raw.isdigit():
+    if not _DIGITS_RE.match(party_raw):
         raise ApiError(422, "validation_failed",
                        "party_size must be decimal digits")
     party_size = int(party_raw)

@@ -31,6 +31,23 @@ _JSON_CT = "application/json; charset=utf-8"
 _MAX_BODY = 16 * 1024 * 1024
 
 
+class _TeeReader:
+    """Pass-through reader that records bytes consumed (headers only —
+    the wrapped stream is restored before the request body is read)."""
+
+    def __init__(self, wrapped):
+        self.wrapped = wrapped
+        self.buf = bytearray()
+
+    def readline(self, *args):
+        line = self.wrapped.readline(*args)
+        self.buf += line
+        return line
+
+    def __getattr__(self, name):
+        return getattr(self.wrapped, name)
+
+
 def _json_bytes(obj):
     return json.dumps(obj, ensure_ascii=False).encode("utf-8")
 
@@ -102,6 +119,18 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
+    def parse_request(self):
+        # Capture the raw header block while the stdlib parses it: the email
+        # parser strips trailing whitespace, which would erase a
+        # whitespace-only Idempotency-Key (ruling G-10: such keys are valid).
+        tee = _TeeReader(self.rfile)
+        self.rfile = tee
+        try:
+            return super().parse_request()
+        finally:
+            self.rfile = tee.wrapped
+            self._raw_headers = bytes(tee.buf)
+
     do_GET = lambda self: self._handle()
     do_POST = lambda self: self._handle()
     do_PUT = lambda self: self._handle()
@@ -147,9 +176,11 @@ class Handler(BaseHTTPRequestHandler):
                 return 200, availability.search(query)
 
             if path == "/reservations" and method == "POST":
+                # Order: JSON-object parse -> auth -> key -> idempotency
+                # -> field validation (spec 5/7; verifier C-ERR-1).
+                body = self._json_object(raw)
                 user = auth.require_user(self.headers)
                 key = self._idem_key()
-                body = self._json_object(raw)
                 return reservations.create_idempotent(
                     user, method, path, key, body)
             if path == "/reservations" and method == "GET":
@@ -168,14 +199,14 @@ class Handler(BaseHTTPRequestHandler):
                     user = auth.require_user(self.headers)
                     return reservations.get_one(user, ref)
                 if method == "PATCH":
-                    user = auth.require_user(self.headers)
                     body = self._json_object(raw)
+                    user = auth.require_user(self.headers)
                     return reservations.patch(user, ref, body)
 
             if path == "/reservation-moves" and method == "POST":
+                body = self._json_object(raw)
                 user = auth.require_user(self.headers)
                 key = self._idem_key()
-                body = self._json_object(raw)
                 return moves.apply_idempotent(user, method, path, key, body)
 
             raise ApiError(404, "not_found", "no such route")
@@ -193,7 +224,20 @@ class Handler(BaseHTTPRequestHandler):
         return obj
 
     def _idem_key(self):
-        key = self.headers.get("Idempotency-Key")
+        # Prefer the raw wire value: the email parser strips trailing
+        # whitespace, so "Idempotency-Key:  " would otherwise read as
+        # empty. Ruling G-10: whitespace-only keys are valid; never trim.
+        key = None
+        for line in getattr(self, "_raw_headers", b"").split(b"\n"):
+            line = line.rstrip(b"\r")
+            if line.lower().startswith(b"idempotency-key:"):
+                raw = line.split(b":", 1)[1]
+                if raw.startswith(b" "):
+                    raw = raw[1:]
+                key = raw.decode("latin-1")
+                break
+        if key is None:
+            key = self.headers.get("Idempotency-Key")
         if key is None or key == "":
             raise ApiError(400, "missing_idempotency_key",
                            "Idempotency-Key header required")

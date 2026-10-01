@@ -20,10 +20,14 @@ _PATCH_FIELDS = ("table_id", "starts_at_local", "party_size")
 
 
 def _validate_shape(body):
-    mv = body.get("moves")
-    if mv is None or not isinstance(mv, list):
-        raise ApiError(422, "validation_failed",
-                       "moves must be an array")
+    # Ruling G-3: `moves` of the wrong JSON type -> 400 malformed_request;
+    # a correctly-typed array with invalid structure (size, non-object
+    # items, dup/non-string refs) -> 422 validation_failed.
+    if "moves" not in body:
+        raise ApiError(422, "validation_failed", "moves is required")
+    mv = body["moves"]
+    if not isinstance(mv, list):
+        raise ApiError(400, "malformed_request", "moves must be an array")
     if not 1 <= len(mv) <= 8:
         raise ApiError(422, "validation_failed",
                        "moves must contain 1..8 items")

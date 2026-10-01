@@ -18,7 +18,7 @@ import re
 from datetime import date as _date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-_BARE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$")
+_BARE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$")
 _WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
 
