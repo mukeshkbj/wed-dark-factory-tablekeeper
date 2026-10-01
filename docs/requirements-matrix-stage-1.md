@@ -232,3 +232,23 @@ Verifier's `verification/stage-1/matrix.md` G-1..G-10 at `8771d7d`:
 Seat-occupancy: for every table and instant, at most one confirmed reservation
 covers it. Asserted after every concurrency check. Money-analog: references
 unique globally; idempotency keys map 1:1 to first-use outcome.
+
+## Rulings round 2 (post phase-2 probe analysis, 2026-10-02)
+
+- **R-11 (engineer flag D1) fold-night overlap:** occupancy is the absolute
+  interval `[starts_at, starts_at+duration)` (§1, §9). On Berlin 2026-10-25,
+  `02:30` first-occurrence occupies `[00:30Z, 02:00Z)` and `01:30` occupies
+  `[23:30Z, 01:00Z)` — they overlap → **409 `table_unavailable` is correct**;
+  the check must probe with a non-overlapping interval (second table/day or
+  assert the 409). No product change.
+- **R-12 (engineer flag D2) fixture validation floor:** §4's normative field
+  table names only `capacity` for tables; `label` appears only in the JSON
+  example and no stated rule requires it. Rulings:
+  - `table.label` — optional; if present must be a string (else 422), if
+    absent the service defaults display to the table `id`.
+  - `table.capacity` — integer `>= 0`; negative → 422. A 0-capacity table is
+    legal (never bookable).
+  - `cancellation_cutoff_minutes` — integer `>= 0`; 0 = changes allowed up
+    to the start instant; negative → 422.
+  - `slot_minutes`, `reservation_duration_minutes` — keep `>= 1` (a zero grid
+    cannot enumerate; zero duration is meaningless).
