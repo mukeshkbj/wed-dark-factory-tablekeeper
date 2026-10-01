@@ -1,0 +1,63 @@
+{
+  "revision": "3a187fbb493478c85039e5fdcbfaf68d09c77ce1",
+  "track": "tablekeeper",
+  "stages": {
+    "1": "pass"
+  },
+  "highest_contiguous": 1,
+  "started_at": "2026-09-30T16:39:12.533118+00:00",
+  "finished_at": "2026-09-30T16:39:51.443353+00:00",
+  "schema_version": 2,
+  "run_id": "172430e2493c42c4bec838458e8e8a8a",
+  "mode": "isolated",
+  "provenance": "working-tree",
+  "state": "completed",
+  "pytest_args": [],
+  "suite_digest": "d3f7571e031c1220729210676225c4d77734f3ffe57c18bb998d5680f295a76e",
+  "checks": {
+    "1": {
+      "collected": 120,
+      "passed": 120,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "xfailed": 0,
+      "files": {
+        "stage_1/test_health_reset_auth.py": {
+          "passed": 12,
+          "total": 12
+        },
+        "stage_1/test_reservations.py": {
+          "passed": 37,
+          "total": 37
+        },
+        "stage_1/test_restaurants_availability.py": {
+          "passed": 18,
+          "total": 18
+        },
+        "stage_1/test_retries_time_input.py": {
+          "passed": 20,
+          "total": 20
+        },
+        "stage_1/test_sample.py": {
+          "passed": 20,
+          "total": 20
+        },
+        "stage_1/test_seeded_state.py": {
+          "passed": 13,
+          "total": 13
+        }
+      }
+    }
+  },
+  "overshoot": null,
+  "claimed_stage": "1",
+  "share": 1.0,
+  "upgrade_sources": {
+    "2": {
+      "folder": "/mnt/d/WED Dark factory/stage-1",
+      "revision": "3a187fbb493478c85039e5fdcbfaf68d09c77ce1"
+    }
+  }
+}
