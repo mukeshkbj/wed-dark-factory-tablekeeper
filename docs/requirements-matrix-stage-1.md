@@ -198,6 +198,35 @@ invariant true.
 - **R-12** `PATCH` on another caller's reference → 404 (same as GET/cancel —
   no existence leak anywhere).
 
+## Rulings on verifier-flagged gaps (round 1)
+
+Verifier's `verification/stage-1/matrix.md` G-1..G-10 at `8771d7d`:
+
+- **G-1** clean-room: process property — agreed, no ruling needed.
+- **G-2** `forbidden` unreachable in stage 1 — agreed.
+- **G-3** `moves` of the wrong JSON type (e.g. `"moves": "x"`, `"moves": 4`):
+  **400 `malformed_request`.** §5's wrong-type rule governs; §11's "invalid
+  shape → 422" means a correctly-typed array whose structure is invalid
+  (empty, >8 items, non-object items, duplicate or non-string references).
+- **G-4** `GET /availability` with unknown `restaurant_id`: **404
+  `not_found`** — "no such resource". (Missing the param is still 422.)
+- **G-5** invalid fixture content (bad weekday, malformed `HH:MM`,
+  `closes ≤ opens`, id >64 chars): **422 `validation_failed`, state
+  unchanged** (restates R-1/R-3). The reset body is caller input.
+- **G-6** email uniqueness: **case-insensitive** compare → `email_taken`
+  (restates R-4). Strictly safer: passes an exact-duplicate check too.
+- **G-7** cutoff equality unreachable black-box — agreed; R-7 documents the
+  intended boundary (`now < starts_at − cutoff` allowed; `==` → 409).
+- **G-8** deployment limits via official harness — agreed.
+- **G-9** `PATCH` with zero recognized fields: **succeeds as a no-op** —
+  still enforces 404-ownership, `reservation_cancelled` and `cutoff_passed`
+  first, then returns 200 with current state. (Stage 3's "sets a field to
+  the value it already has … still succeeds, records no entry" confirms the
+  no-op-is-successful reading.)
+- **G-10** whitespace-only `Idempotency-Key`: **a valid key.** Spec
+  distinguishes "absent or empty" (→400); a non-empty whitespace string is
+  1..255 chars. Implementer must not trim the key for matching.
+
 ## Conservation law (stage 1)
 
 Seat-occupancy: for every table and instant, at most one confirmed reservation
