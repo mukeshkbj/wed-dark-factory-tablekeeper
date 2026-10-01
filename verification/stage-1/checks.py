@@ -176,6 +176,8 @@ def sec_auth():
     check_status("C-AU-2", st, 200, json.dumps(bd).encode())
     st, hd, b, _ = call("POST", "/auth/signup", body={"email":"caro@example.com","password":"password9","display_name":"X"})
     check_status("C-AU-3", st, 409, b, code="email_taken")
+    st, hd, b, _ = call("POST", "/auth/signup", body={"email":"CARO@example.com","password":"password9","display_name":"Y"})
+    check_status("C-AU-3x", st, 409, b, code="email_taken")   # ruling: case-insensitive
     st, hd, b, _ = call("POST", "/auth/signup", body={"email":"new@x.com","password":"short","display_name":"X"})
     check_status("C-AU-3b", st, 422, b, code="validation_failed")
     for em in ("noatsign", "a@", "@b.com", "a b@c.com"):
@@ -253,7 +255,9 @@ def sec_errors():
     # oversized fixture id -> 4xx (ruling: 422 + state unchanged)
     fx = fixture_base(); fx["restaurants"][0]["id"] = "x" * 65
     st, hd, b, _ = call("POST", "/_test/reset", body=fx)
-    check_status("C-IGN-3", st, (400, 422), b)
+    check_status("C-IGN-3", st, 422, b, code="validation_failed")
+    st, hd, b, _ = call("GET", "/restaurants/r_anker")
+    expect("C-IGN-3b", st == 200, "state unchanged after invalid fixture reset")
     reset()
 
 # ---------------- API surface / availability / booking ----------------
@@ -294,7 +298,7 @@ def sec_availability():
         st, hd, b, _ = call("GET", f"/availability?restaurant_id=r_anker&date={d}&party_size=2")
         check_status("C-AV-6b", st, 422, b, code="validation_failed")
     st, hd, b, _ = call("GET", "/availability?restaurant_id=nope&date=2026-09-24&party_size=2")
-    check_status("C-AV-6c", st, (404, 422), b)   # ruling G-4
+    check_status("C-AV-6c", st, 404, b, code="not_found")   # ruling: 404
     # grid enumeration: thu 18:00-23:00, slot 30, dur 90 -> last slot 21:30
     st, hd, b, _ = call("GET", "/availability?restaurant_id=r_anker&date=2026-09-24&party_size=2")
     check_status("C-AV-2", st, 200, b)
@@ -454,7 +458,10 @@ def sec_list_cancel_patch():
     expect("C-PAT-6b", (j(b) or {}).get("party_size") == 2, "failed PATCH kept values")
     # no-op patch observation
     st, hd, b, _ = call("PATCH", f"/reservations/{ref2}", body={}, token=ada)
-    note("C-PAT-G9", f"empty PATCH -> {st}")
+    check_status("C-PAT-9", st, 200, b)
+    pr9 = j(b) or {}
+    expect("C-PAT-9b", pr9.get("table_id") == "t_c" and pr9.get("party_size") == 2,
+           "empty PATCH is a 200 no-op retaining values")
 
 def sec_cutoff():
     # seeded reservations relative to NOW on r_ops (UTC, cutoff 120)
@@ -488,11 +495,19 @@ def sec_cutoff():
     m = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {})["slots"]}
     expect("C-CXL-6", "t_b" not in m.get(near, []), f"near slot still occupied {m.get(near)}")
     # invalid fixture handling
-    fx2 = fixture_base(); fx2["restaurants"][0]["opening_hours"][0]["weekday"] = "noday"
-    st, hd, b, _ = call("POST", "/_test/reset", body=fx2)
-    check_status("C-FX-1", st, (400, 422), b)
-    st, hd, b, _ = call("GET", "/restaurants/r_ops")
-    expect("C-FX-1b", st == 200, "state unchanged after invalid fixture")
+    for mutate in ("weekday", "opens", "order"):
+        fx2 = fixture_base()
+        if mutate == "weekday":
+            fx2["restaurants"][0]["opening_hours"][0]["weekday"] = "noday"
+        elif mutate == "opens":
+            fx2["restaurants"][0]["opening_hours"][0]["opens"] = "18:60"
+        else:
+            fx2["restaurants"][0]["opening_hours"][0]["opens"] = "23:00"
+            fx2["restaurants"][0]["opening_hours"][0]["closes"] = "18:00"
+        st, hd, b, _ = call("POST", "/_test/reset", body=fx2)
+        check_status("C-FX-1", st, 422, b, code="validation_failed")
+        st, hd, b, _ = call("GET", "/restaurants/r_ops")
+        expect("C-FX-1b", st == 200, f"state unchanged after bad fixture ({mutate})")
     reset()
 
 # ---------------- idempotency ----------------
@@ -558,9 +573,13 @@ def sec_idem():
     expect("C-IDM-9b", j(b) == orig and (j(b) or {}).get("status") == "confirmed",
            "replay returns original confirmed body after cancel")
     # whitespace-only key -> observation
-    st, hd, b, _ = call("POST", "/reservations", body=dict(good, table_id="t_c", starts_at_local=utc_local(60*60)),
+    ws_body = dict(good, table_id="t_c", starts_at_local=utc_local(60*60))
+    st, hd, b, _ = call("POST", "/reservations", body=ws_body,
                         token=ada, extra_headers={"Idempotency-Key": " "})
-    note("C-IDM-G10", f"whitespace key -> {st} {err_code(b)}")
+    check_status("C-IDM-10", st, 201, b)          # ruling: whitespace-only key is valid
+    st, hd, b, _ = call("POST", "/reservations", body=ws_body,
+                        token=ada, extra_headers={"Idempotency-Key": " "})
+    check_status("C-IDM-10b", st, 200, b)         # replay of the whitespace key
 
 # ---------------- concurrency ----------------
 
@@ -629,7 +648,9 @@ def sec_moves():
         st, hd, b, _ = call("POST", "/reservation-moves", body={"moves":mv}, token=ada, idem=key())
         check_status("C-MV-2", st, 422, b, code="validation_failed")
     st, hd, b, _ = call("POST", "/reservation-moves", body={"moves":"x"}, token=ada, idem=key())
-    check_status("C-MV-2d", st, (400, 422), b)  # G-3
+    check_status("C-MV-2d", st, 400, b, code="malformed_request")   # ruling: wrong type = 400
+    st, hd, b, _ = call("POST", "/reservation-moves", body={"moves":[7]}, token=ada, idem=key())
+    check_status("C-MV-2e", st, 422, b, code="validation_failed")   # non-object item = invalid shape
     # foreign / unknown refs
     rb = book(bob, "t_c", T3)[1]
     st, hd, b, _ = call("POST", "/reservation-moves",
