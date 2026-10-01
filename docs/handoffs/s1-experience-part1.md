@@ -1,0 +1,27 @@
+@mukeshkbj/tk-experience — STAGE 1 SHARE DISPATCH [PART 1 of 3 — task; the complete official stage-1 spec follows verbatim in parts 2 and 3. You need all three parts.]
+
+Before anything else: read your mandate file `D:\WED Dark factory\mandates\tk-experience.md` — it governs this whole run. Record the model id your session actually reports in your first committed artifact; the mandate header requested `swe` — report the resolved value honestly.
+
+TASK: your substantive stage-1 share — build these files in `D:\WED Dark factory\stage-1\` per the pasted spec:
+
+1. `stage-1/src/timeutil.py` — all IANA-timezone/DST/slot-grid math (spec §9 + the availability grid rule in §8). Required public surface (the engineer codes against this contract — keep these names/signatures stable; you may add more):
+   - `resolve_local(tz_name: str, local_naive: str) -> datetime` — parse a BARE `YYYY-MM-DDTHH:MM` (no offset, no `Z`, no seconds — anything else raises `MalformedLocalTime`), resolve in the named IANA zone. Nonexistent local (spring-forward gap) raises `InvalidLocalTime`. Ambiguous local (fall-back) resolves to the FIRST occurrence — the one before the clocks change (`fold=0` semantics).
+   - `slots_for_day(rest: dict, date: str) -> list[dict]` — `rest` is the fixture restaurant object. For the weekday of `date` (local to `rest["timezone"]`), emit one entry `{starts_at_local: "YYYY-MM-DDTHH:MM", starts_at: <aware datetime>, ends_at: <aware datetime>}` for every `slot_minutes` step from `opens` with `start + reservation_duration_minutes <= closes` (absolute duration — a 90-min booking at 01:30 on fall-back night ends at local 02:00). Closed weekday → `[]`. Skip nonexistent locals entirely; emit ambiguous locals once (first occurrence). `ends_at` = `starts_at` + absolute duration.
+   - `overlaps(a_start: datetime, a_end: datetime, b_start: datetime, b_end: datetime) -> bool` — half-open `[start, end)` semantics; 19:00+90min vs a 20:30 start do NOT overlap.
+   - `rfc3339(dt: datetime) -> str` — RFC 3339 with explicit numeric offset (never bare `Z` requirement is loose; emit `+HH:MM` form, `+00:00` for UTC).
+   - `weekday_of(tz_name: str, date: str) -> str` — "mon".."sun".
+   - Define `InvalidLocalTime` and `MalformedLocalTime` exceptions in this module.
+   - `zoneinfo.ZoneInfo` is the resolution mechanism; it is already in stdlib — just make sure your logic detects nonexistence by round-tripping through UTC and comparing.
+2. `stage-1/src/fixtures.py` — fixture parsing/validation (spec §4) + demo seed:
+   - `validate_fixture(body: dict) -> dict` — validate the whole reset fixture: `users`/`restaurants`/`reservations` arrays; every id is a string ≤64 chars (coordinator ruling R-1: over-length or wrong-type ids → fail); each user needs `id`, `email` (`local@domain`), `password` (string), `display_name`; each restaurant needs `id`, `name`, valid IANA `timezone` (try `ZoneInfo` — unknown zone fails), `slot_minutes`/`reservation_duration_minutes`/`cancellation_cutoff_minutes` positive ints (booleans are not ints), `opening_hours` list of `{weekday ∈ mon..sun, opens, closes}` with bare `HH:MM` and `closes > opens` same-day, `tables` list of `{id ≤64, label, capacity int ≥1}`. Raise `FixtureError(status, code)` — reset-side failures map to 422 `validation_failed` (coordinator ruling R-3). Return the parsed dict.
+   - `FixtureError(Exception)` carrying `.status` and `.code`.
+   - `demo_seed() -> dict` — an attractive self-contained demo fixture: 2–3 restaurants with real-feeling names, varied `opening_hours`, tables with human labels ("Window Two", "Chef's Counter"), a couple of demo users incl. a documented synthetic account `demo@tablekeeper.test` / password `demo-pass-123`, and 3–4 seeded confirmed `reservations` (fields: POST body + `id`, `reference` matching `[A-Z0-9]{6,12}`, `user_id`, `status`). Everything synthetic — never real credentials or personal data.
+3. `stage-1/tests/test_timeutil.py` and `stage-1/tests/test_fixtures.py` — your own spec-derived unit tests: Berlin + New_York 2026 transitions (spring gap rejection, fall-back first-occurrence, absolute duration ending at local 02:00), slot-grid boundary (`slot+duration == closes` included), closed day, fixture rejections (bad weekday, malformed HH:MM, closes ≤ opens, 65-char id, non-dict body).
+
+BOUNDARY: do not create/modify any other `stage-1/` files — server, state, auth, reservations, moves, availability, transfer, errors, Dockerfile, RUN.md are the engineer's. `stage-1/` currently holds stale `__pycache__` dirs — the engineer cleans them; ignore them.
+
+PROCESS: commit early, only your files: `git -c user.name='TK Experience' -c user.email='tk-experience@local' commit ...`. Never amend/squash/rebase. Run your unit tests locally (any Python 3.12+ works; the repo's own interpreter is fine — `python stage-1/tests/test_timeutil.py` style, or `python -m unittest`/`pytest`, your choice).
+
+DONE = handoff message to the room addressed to the coordinator seat (inspect `jam --profile default --session setup chat participants a80cdbce-db3b-4f69-a49f-d0b48119d581` for the exact handle — do not guess): commit SHA(s), exact commands + exit codes, your public surface summary, and anything unverified. Then end your turn — do not poll.
+
+The complete official stage-1 spec follows in the next two parts.
