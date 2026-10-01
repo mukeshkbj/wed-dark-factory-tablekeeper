@@ -1,0 +1,50 @@
+{
+  "kind": "layered",
+  "title": "Tablekeeper service architecture",
+  "layers": [
+    {
+      "id": "client",
+      "title": "Client layer",
+      "items": [
+        { "id": "browser_ui", "label": "Browser UI (stage 2+): search grid, booking, lookup, manager screens" },
+        { "id": "http_clients", "label": "API clients / harness" }
+      ]
+    },
+    {
+      "id": "edge",
+      "title": "HTTP edge (stdlib server)",
+      "items": [
+        { "id": "router", "label": "Router + JSON parse + error envelope" },
+        { "id": "authn", "label": "Bearer auth + signup/login (scrypt)" },
+        { "id": "idem", "label": "Idempotency registry (per-user keys, original responses)" },
+        { "id": "testctl", "label": "/_test reset, export, import (hardened mode disables)" }
+      ]
+    },
+    {
+      "id": "domain",
+      "title": "Domain core (one writer lock — linearizable)",
+      "items": [
+        { "id": "availability", "label": "Slot grid + table availability" },
+        { "id": "reservations", "label": "Create / amend / cancel / moves" },
+        { "id": "timeutil", "label": "IANA timezone, DST gap/overlap, absolute duration" },
+        { "id": "policies", "label": "Stage 3: dated policies, accepted terms, history, series" },
+        { "id": "replanner", "label": "Stage 4: bounded optimal closure replans + atomic apply" }
+      ]
+    },
+    {
+      "id": "store",
+      "title": "State",
+      "items": [
+        { "id": "state", "label": "In-memory state under single lock; optional WAL persistence" },
+        { "id": "fixtures", "label": "Fixture parsing/validation + demo seed" }
+      ]
+    }
+  ],
+  "flows": [
+    { "from": "client", "to": "edge", "label": "HTTP/JSON on PORT (default 8080)" },
+    { "from": "router", "to": "authn", "label": "token check (except public/test routes)" },
+    { "from": "router", "to": "idem", "label": "key resolve before field validation" },
+    { "from": "edge", "to": "domain", "label": "check-and-act inside writer lock" },
+    { "from": "domain", "to": "store", "label": "atomic mutate / snapshot for export" }
+  ]
+}

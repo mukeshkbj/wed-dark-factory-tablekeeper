@@ -138,7 +138,65 @@ to read its mandate file first; the file is both instruction and artifact.
 3. **Model reporting** — `swe` requested; seats record actual resolved id on
    first commit (see dispatch).
 
-## 11. Reference implementations studied
+## 12. Scored-run plan (active room plan)
+
+Room `a80cdbce-db3b-4f69-a49f-d0b48119d581`, dispatched 2026-10-01 by
+`dispatch.md`. Sequential stages, each through the same gate:
+
+1. **Stage 1** — engineer builds the JSON API service (stdlib Python 3.12+,
+   no runtime deps, single-writer-lock state, `hashlib.scrypt` passwords,
+   `zoneinfo` tz); experience builds `timeutil.py` (DST rules, slot grid)
+   and `fixtures.py` (fixture parse/validate + demo seed); verifier derives
+   its own matrix + checks from the spec, then runs the official harness
+   (`--stage 1`, then `--mode isolated`). Coordinator holds the gate.
+2. **Stage 2** — copy accepted `stage-1/` to `stage-2/`; engineer extends the
+   API (combined tables, upgrade-import); experience builds the browser UI
+   per the testid contract.
+3. **Stage 3** — policies/accepted-terms/history/series; manager screens.
+4. **Stage 4** — series amend + bounded deterministic replans; closure
+   preview-and-apply manager screen; DEMO-RUNBOOK.
+5. **Final** — `--all --mode isolated`, clean-clone check, offline
+   `harness check`, FACTORY.md fill, final report.
+
+Architecture the service grows into:
+
+```arch
+{
+  "kind": "layered",
+  "title": "Tablekeeper service architecture",
+  "layers": [
+    { "id": "client", "title": "Client layer", "items": [
+      { "id": "browser_ui", "label": "Browser UI (stage 2+): search grid, booking, lookup, manager screens" },
+      { "id": "http_clients", "label": "API clients / harness" } ] },
+    { "id": "edge", "title": "HTTP edge (stdlib server)", "items": [
+      { "id": "router", "label": "Router + JSON parse + error envelope" },
+      { "id": "authn", "label": "Bearer auth + signup/login (scrypt)" },
+      { "id": "idem", "label": "Idempotency registry (per-user keys, original responses)" },
+      { "id": "testctl", "label": "/_test reset, export, import (hardened mode disables)" } ] },
+    { "id": "domain", "title": "Domain core (one writer lock — linearizable)", "items": [
+      { "id": "availability", "label": "Slot grid + table availability" },
+      { "id": "reservations", "label": "Create / amend / cancel / moves" },
+      { "id": "timeutil", "label": "IANA timezone, DST gap/overlap, absolute duration" },
+      { "id": "policies", "label": "Stage 3: dated policies, accepted terms, history, series" },
+      { "id": "replanner", "label": "Stage 4: bounded optimal closure replans + atomic apply" } ] },
+    { "id": "store", "title": "State", "items": [
+      { "id": "state", "label": "In-memory state under single lock; optional WAL persistence" },
+      { "id": "fixtures", "label": "Fixture parsing/validation + demo seed" } ] }
+  ],
+  "flows": [
+    { "from": "client", "to": "edge", "label": "HTTP/JSON on PORT (default 8080)" },
+    { "from": "router", "to": "authn", "label": "token check (except public/test routes)" },
+    { "from": "router", "to": "idem", "label": "key resolve before field validation" },
+    { "from": "edge", "to": "domain", "label": "check-and-act inside writer lock" },
+    { "from": "domain", "to": "store", "label": "atomic mutate / snapshot for export" }
+  ]
+}
+```
+
+Key rulings live in `docs/requirements-matrix-stage-1.md` (and later-stage
+siblings as they land).
+
+## 13. Reference implementations studied
 
 - `shi1720/WeAreDevelopers` — Tablekeeper, 4 seats, all stages accepted.
   Source of seat set, dispatch shape, module map.
