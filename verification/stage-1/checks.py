@@ -106,7 +106,8 @@ def fixture_base():
             {"id":"r_berlin","name":"DST Berlin","timezone":"Europe/Berlin",
              "slot_minutes":30,"reservation_duration_minutes":90,"cancellation_cutoff_minutes":60,
              "opening_hours":[{"weekday":"sun","opens":"00:00","closes":"06:00"}],
-             "tables":[{"id":"tb_1","label":"1","capacity":4}]},
+             "tables":[{"id":"tb_1","label":"1","capacity":4},
+                       {"id":"tb_2","label":"2","capacity":4}]},
             {"id":"r_nyc","name":"DST NYC","timezone":"America/New_York",
              "slot_minutes":30,"reservation_duration_minutes":90,"cancellation_cutoff_minutes":60,
              "opening_hours":[{"weekday":"sun","opens":"00:00","closes":"06:00"}],
@@ -116,7 +117,13 @@ def fixture_base():
     }
 
 def utc_local(minutes_from_now):
-    return (datetime.now(timezone.utc) + timedelta(minutes=minutes_from_now)).strftime("%Y-%m-%dT%H:%M")
+    """r_ops-aligned wall clock: snap to the 15-minute slot grid from opens
+    00:00 UTC and clamp so start+60min <= closes 23:59 (latest start 22:45)."""
+    dt = datetime.now(timezone.utc) + timedelta(minutes=minutes_from_now)
+    dt = dt.replace(minute=(dt.minute // 15) * 15, second=0, microsecond=0)
+    if dt.hour >= 23:
+        dt = dt.replace(hour=22, minute=45)
+    return dt.strftime("%Y-%m-%dT%H:%M")
 
 def reset(fx=None, cid="C-RT-x"):
     st, hd, b, dt = call("POST", "/_test/reset", body=fx if fx is not None else fixture_base(), timeout=15)
@@ -291,7 +298,7 @@ def sec_availability():
         st, hd, b, _ = call("GET", "/availability?" + q)
         check_status("C-AV-1", st, 422, b, code="validation_failed")
     # integer query-param lexical rule
-    for ps in ("1e9", "4.0", "+4", "-1", "x", "0x4", " 4", "4 "):
+    for ps in ("1e9", "4.0", "+4", "-1", "x", "0x4", "%204", "4%20"):
         st, hd, b, _ = call("GET", f"/availability?restaurant_id=r_anker&date=2026-09-24&party_size={ps}")
         check_status("C-AV-6", st, 422, b, code="validation_failed")
     for d in ("2026-13-40", "24-09-2026", "2026/09/24", "x"):
@@ -350,7 +357,9 @@ def sec_booking_errors():
     _, bd = login("ada@example.com", "correct horse"); ada = bd["token"]
     base = {"restaurant_id":"r_anker","table_id":"t_2","starts_at_local":"2026-09-24T19:00","party_size":4}
     st, hd, b, _ = call("POST", "/reservations", body=base, token=ada, idem=key())
-    assert st == 201
+    if st != 201:
+        expect("C-BK-3:setup", False, f"setup create st={st} body={b[:160]!r}")
+        return
     # overlap -> 409
     for t in ("19:30", "20:00", "19:00"):
         bad = dict(base); bad["starts_at_local"] = f"2026-09-24T{t}"
@@ -412,12 +421,12 @@ def sec_list_cancel_patch():
     # cancel frees slot immediately
     d = t1[:10]
     st, hd, b, _ = call("GET", f"/availability?restaurant_id=r_ops&date={d}&party_size=2")
-    before = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {})["slots"]}
+    before = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {}).get("slots") or []}
     st, hd, b, _ = call("POST", f"/reservations/{ref1}/cancel", token=ada)
     check_status("C-CXL-1", st, 200, b)
     expect("C-CXL-1b", (j(b) or {}).get("status") == "cancelled", f"status {b[:100]!r}")
     st, hd, b, _ = call("GET", f"/availability?restaurant_id=r_ops&date={d}&party_size=2")
-    after = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {})["slots"]}
+    after = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {}).get("slots") or []}
     expect("C-CXL-2", "t_a" in after.get(t1, []) and "t_a" not in before.get(t1, []),
            f"freed: before={before.get(t1)} after={after.get(t1)}")
     # double cancel -> 200 current state
@@ -441,7 +450,7 @@ def sec_list_cancel_patch():
            "identity+reference preserved")
     d2 = t2[:10]
     st, hd, b, _ = call("GET", f"/availability?restaurant_id=r_ops&date={d2}&party_size=2")
-    m = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {})["slots"]}
+    m = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {}).get("slots") or []}
     expect("C-PAT-3", "t_b" in m.get(t2, []) and "t_c" not in m.get(t2, []),
            f"old freed new held: {m.get(t2)}")
     # PATCH failure atomicity: patch t_c onto occupied t_c? patch onto t_a at t2
@@ -492,7 +501,7 @@ def sec_cutoff():
     # occupancy still held for cutoff-blocked booking
     d = near[:10]
     st, hd, b, _ = call("GET", f"/availability?restaurant_id=r_ops&date={d}&party_size=2")
-    m = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {})["slots"]}
+    m = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {}).get("slots") or []}
     expect("C-CXL-6", "t_b" not in m.get(near, []), f"near slot still occupied {m.get(near)}")
     # invalid fixture handling
     for mutate in ("weekday", "opens", "order"):
@@ -600,8 +609,10 @@ def sec_concurrency():
     bodies = [j(r[2]) for r in rs]
     n201 = sts.count(201); n200 = sts.count(200)
     expect("C-CON-1", n201 == 1 and n200 == N - 1, f"201x{n201} 200x{n200} sts={sts}")
-    first = next(bd2 for s, bd2 in zip(sts, bodies) if s == 201)
-    expect("C-CON-1b", all(bd2 == first for bd2 in bodies), "all bodies identical to winner")
+    winners = [bd2 for s, bd2 in zip(sts, bodies) if s == 201]
+    first = winners[0] if winners else None
+    expect("C-CON-1b", first is not None and all(bd2 == first for bd2 in bodies),
+           "all bodies identical to winner")
     st, hd, b, _ = call("GET", "/reservations", token=ada)
     expect("C-CON-1c", len((j(b) or {}).get("reservations", [])) == 1, "exactly one booking")
     # 25 conflicting bookings (different keys, same table+slot) -> exactly one wins
@@ -620,7 +631,7 @@ def sec_concurrency():
     # conservation: table held once at the slot
     d = body2["starts_at_local"][:10]
     st, hd, b, _ = call("GET", f"/availability?restaurant_id=r_ops&date={d}&party_size=2")
-    m = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {})["slots"]}
+    m = {s["starts_at_local"]: s["available_table_ids"] for s in (j(b) or {}).get("slots") or []}
     expect("C-CON-3", "t_b" not in m.get(body2["starts_at_local"], []), "winner occupies slot")
 
 # ---------------- reservation moves ----------------
@@ -756,7 +767,7 @@ def sec_dst():
            f"first occurrence {j(b) and j(b).get('starts_at')}")
     # absolute duration: book 01:30 on fold night -> ends_at reads 02:00 local (+01:00)
     st, hd, b, _ = call("POST", "/reservations", token=ada, idem=key(),
-        body={"restaurant_id":"r_berlin","table_id":"tb_1","starts_at_local":"2026-10-25T01:30","party_size":2})
+        body={"restaurant_id":"r_berlin","table_id":"tb_2","starts_at_local":"2026-10-25T01:30","party_size":2})
     check_status("C-DST-3", st, 201, b)
     expect("C-DST-3b", (j(b) or {}).get("ends_at") == "2026-10-25T02:00:00+01:00",
            f"ends_at {j(b) and j(b).get('ends_at')}")

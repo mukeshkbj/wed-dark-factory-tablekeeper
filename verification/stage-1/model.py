@@ -187,8 +187,10 @@ def main():
                for r in (j(b) or {}).get("reservations", [])}
         mdl = {(r["table"], local(r["start"]), r["status"], r["party"])
                for r in M.res.values() if r["ref"] in svc_ref}
-        agree("M-AGR-state", st == 200 and svc == mdl, None, 200, None,
-              f"op{i} svc={sorted(svc)} model={sorted(mdl)}")
+        ok = st == 200 and svc == mdl
+        if not ok: FAIL.append("M-AGR-state")
+        print(("PASS" if ok else "FAIL"), "M-AGR-state",
+              f"st={st} op{i} svc={sorted(svc)} model={sorted(mdl)}", flush=True)
     n = 0
     for i in range(args.ops):
         n = i
