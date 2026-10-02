@@ -238,7 +238,8 @@ Architecture the service grows into:
       { "id": "availability", "label": "Slot grid + table availability" },
       { "id": "reservations", "label": "Create / amend / cancel / moves" },
       { "id": "timeutil", "label": "IANA timezone, DST gap/overlap, absolute duration" },
-      { "id": "policies", "label": "Stage 3: dated policies, accepted terms, history, series" },
+      { "id": "policies", "label": "Stage 3: dated policies, accepted terms, reservation history" },
+      { "id": "series", "label": "Stage 3: recurring series + occurrence exceptions" },
       { "id": "replanner", "label": "Stage 4: bounded optimal closure replans + atomic apply" } ] },
     { "id": "store", "title": "State", "items": [
       { "id": "state", "label": "In-memory state under single lock; optional WAL persistence" },
