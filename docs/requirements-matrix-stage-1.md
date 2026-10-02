@@ -262,3 +262,7 @@ unique globally; idempotency keys map 1:1 to first-use outcome.
 - **R-15 (experience flag 1):** `slots_for_day` entry emits a superset
   (wire `starts_at`/`starts_at_local` strings + aware-datetime views).
   Accepted as-is; consumers pick the keys they need. No adapt needed.
+- **R-16 (experience flag 5):** seeding a reservation whose `starts_at_local`
+  is malformed or nonexistent in the restaurant's zone may fail fixture
+  validation (422 `validation_failed`) — a fixture must seed coherent data;
+  stricter seed checks cannot produce false acceptances.
