@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tablekeeper — create your account</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Table<em>keeper</em></a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/">Find a table</a>
+      <a href="/lookup">Your booking</a>
+    </nav>
+    <div class="header-auth" id="header-auth"></div>
+  </header>
+
+  <main class="auth-wrap">
+    <section class="card auth-card">
+      <h1>Create your account</h1>
+      <p class="lede">One account for every table you hold.</p>
+      <form id="signup-form" novalidate>
+        <div>
+          <label for="signup-display-name">Display name</label>
+          <input id="signup-display-name" data-testid="signup-display-name"
+                 type="text" autocomplete="name" required>
+        </div>
+        <div>
+          <label for="signup-email">Email</label>
+          <input id="signup-email" data-testid="signup-email" type="email"
+                 autocomplete="email" required>
+        </div>
+        <div>
+          <label for="signup-password">Password</label>
+          <input id="signup-password" data-testid="signup-password"
+                 type="password" autocomplete="new-password"
+                 minlength="8" required>
+        </div>
+        <div id="auth-error-slot"></div>
+        <button class="btn btn-primary" data-testid="signup-submit"
+                type="submit">Create account</button>
+      </form>
+      <p class="auth-alt">Already have an account?
+        <a href="/login">Log in</a></p>
+    </section>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/auth.js"></script>
+</body>
+</html>

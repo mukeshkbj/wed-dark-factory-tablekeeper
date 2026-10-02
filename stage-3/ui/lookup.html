@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tablekeeper — your booking</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Table<em>keeper</em></a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/">Find a table</a>
+      <a href="/lookup">Your booking</a>
+    </nav>
+    <div class="header-auth" id="header-auth"></div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <h1>Your booking</h1>
+      <p>Enter the reference from your confirmation to review or cancel
+        a reservation.</p>
+    </section>
+
+    <section class="card lookup-card lookup-wrap" aria-labelledby="lookup-h">
+      <h2 id="lookup-h" class="lede" style="font-size:19px;margin:0 0 14px">
+        Look up a reservation</h2>
+      <form id="lookup-form">
+        <div class="field">
+          <label for="lookup-reference-input">Booking reference</label>
+          <input id="lookup-reference-input"
+                 data-testid="lookup-reference-input" type="text"
+                 autocomplete="off" spellcheck="false"
+                 placeholder="e.g. K3P7QW" required>
+        </div>
+        <button class="btn btn-primary" data-testid="lookup-submit"
+                type="submit">Find booking</button>
+      </form>
+      <div id="lookup-notes"></div>
+    </section>
+
+    <div id="lookup-result" class="lookup-wrap"></div>
+  </main>
+
+  <footer class="site-footer">
+    Tablekeeper — a reservation service demo. All data is synthetic.
+  </footer>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/lookup.js"></script>
+</body>
+</html>

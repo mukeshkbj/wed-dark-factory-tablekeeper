@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tablekeeper — log in</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Table<em>keeper</em></a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/">Find a table</a>
+      <a href="/lookup">Your booking</a>
+    </nav>
+    <div class="header-auth" id="header-auth"></div>
+  </header>
+
+  <main class="auth-wrap">
+    <section class="card auth-card">
+      <h1>Welcome back</h1>
+      <p class="lede">Log in to book and manage your tables.</p>
+      <form id="login-form" novalidate>
+        <div>
+          <label for="login-email">Email</label>
+          <input id="login-email" data-testid="login-email" type="email"
+                 autocomplete="email" required>
+        </div>
+        <div>
+          <label for="login-password">Password</label>
+          <input id="login-password" data-testid="login-password"
+                 type="password" autocomplete="current-password" required>
+        </div>
+        <div id="auth-error-slot"></div>
+        <button class="btn btn-primary" data-testid="login-submit"
+                type="submit">Log in</button>
+      </form>
+      <p class="auth-alt">New to Tablekeeper?
+        <a href="/signup">Create an account</a></p>
+    </section>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/auth.js"></script>
+</body>
+</html>
