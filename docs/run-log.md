@@ -17,6 +17,7 @@ Started 2026-10-01 by the single production dispatch (`dispatch.md`).
 |---|---|---|---|
 | 1 | `aae0226` (`stage-1/` tree `14c9e43`) | verifier CONFIRMED; official 120/120 isolated | Frozen — `docs/gates/stage-1-freeze.md`. |
 | 2 | `ee28d6b` (`stage-2/` tree `5be5343`) | verifier ACCEPTED; coordinator official 120/120 stage-1 + 25/25 stage-2 isolated | Frozen — `docs/gates/stage-2-freeze.md`. |
+| 3 | `e5679e3` (`stage-3/` tree `d9d04ba`) | verifier CONFIRMED; coordinator official 120/120 stage-1 + 25/25 stage-2 + 7/7 stage-3 isolated | Frozen — `docs/gates/stage-3-freeze.md`. |
 
 ## 2026-10-02 coordinator notes
 
@@ -70,3 +71,16 @@ accepted-SHA declaration.
   upgrade 19/19, model 3x500 ops clean, hardened mode 5/5, official host and
   isolated stage-2 25/25.
 - Gate record: `docs/gates/stage-2-freeze.md`. Next stage: stage-3 dispatch.
+
+## Stage-3 gate — FROZEN @ e5679e3 (2026-10-02)
+
+- Product revision `d9d04ba` accepted: engineer `d8a0599` + experience
+  `d9d04ba` on verbatim scaffold `c23f857`; verifier/evidence commits
+  `113fc84` and `e5679e3` add no product-code delta.
+- Coordinator official harness `s3-run1-coordinator-isolated`: stage-1 120/120,
+  stage-2 25/25, stage-3 7/7, `state: completed`, `mode: isolated`; stage-4
+  overshoot fails as expected.
+- Verifier final evidence: independent API 637/637, upgrade 38/38, hardened
+  5/5, inherited browser contract 82/82, official host and isolated stage-3
+  7/7 with inherited stages green.
+- Gate record: `docs/gates/stage-3-freeze.md`. Next stage: stage-4 dispatch.

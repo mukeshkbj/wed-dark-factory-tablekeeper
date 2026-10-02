@@ -151,8 +151,10 @@ the same gate:
 2. **Stage 2** — ✅ FROZEN @ `ee28d6b` (`stage-2/` product revision
    `5be5343`; verifier ACCEPTED + coordinator official 120/120 stage-1 and
    25/25 stage-2 isolated). Evidence: `docs/gates/stage-2-freeze.md`.
-3. **Stage 3** — ACTIVE (this room): policies/accepted-terms/history/series;
-   no new screens required. Plan below in §12b.
+3. **Stage 3** — ✅ FROZEN @ `e5679e3` (`stage-3/` product revision
+   `d9d04ba`; verifier CONFIRMED + coordinator official 120/120 stage-1,
+   25/25 stage-2, 7/7 stage-3 isolated). Evidence:
+   `docs/gates/stage-3-freeze.md`.
 4. **Stage 4** — series amend + bounded deterministic replans; closure
    preview-and-apply manager screen; DEMO-RUNBOOK.
 5. **Final** — `--all --mode isolated`, clean-clone check, offline
@@ -189,7 +191,7 @@ browser UI on 4 routes, stage-1→stage-2 export upgrade.
 Gate: verifier CONFIRMED **and** coordinator-run official harness
 `--stage 2 --mode isolated` pass → `docs/gates/stage-2-freeze.md` → stage 3.
 
-### 12b. Stage-3 run plan (active)
+### 12b. Stage-3 run plan (completed)
 
 Source spec: `D:\tk-official\tablekeeper\spec\stage-3.md` (inherits stages 1
 and 2). Clause matrix: `docs/requirements-matrix-stage-3.md` (rulings
