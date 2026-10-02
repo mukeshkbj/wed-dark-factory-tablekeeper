@@ -1,4 +1,4 @@
-"""Tablekeeper stage-2 HTTP service.
+"""Tablekeeper stage-4 HTTP service.
 
 Python 3.12+ stdlib only. ThreadingHTTPServer on 0.0.0.0:$PORT (default 8080).
 All request handling that touches shared state runs under one re-entrant
@@ -25,6 +25,7 @@ import auth
 import availability
 import moves
 import policies
+import replans
 import reservations
 import series
 import transfer
@@ -128,7 +129,7 @@ def _ui_response(path):
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "Tablekeeper/3.0"
+    server_version = "Tablekeeper/4.0"
 
     # ---- plumbing ----------------------------------------------------
 
@@ -269,6 +270,22 @@ class Handler(BaseHTTPRequestHandler):
                     key = self._idem_key()
                     return policies.publish_idempotent(
                         user, method, path, key, rid, body)
+            m = re.fullmatch(
+                r"/restaurants/([^/]+)/replans/([^/]+)/apply", path)
+            if m and method == "POST":
+                body = self._json_object(raw)
+                user = auth.require_user(self.headers)
+                key = self._idem_key()
+                return replans.apply_idempotent(
+                    user, method, path, key, unquote(m.group(1)),
+                    unquote(m.group(2)), body)
+            m = re.fullmatch(r"/restaurants/([^/]+)/replans", path)
+            if m and method == "POST":
+                body = self._json_object(raw)
+                user = auth.require_user(self.headers)
+                key = self._idem_key()
+                return replans.preview_idempotent(
+                    user, method, path, key, unquote(m.group(1)), body)
             m = re.fullmatch(r"/restaurants/([^/]+)", path)
             if method == "GET" and m:
                 return 200, availability.get_restaurant(unquote(m.group(1)))
@@ -317,6 +334,14 @@ class Handler(BaseHTTPRequestHandler):
                 key = self._idem_key()
                 return series.adopt_idempotent(
                     user, method, path, key, body)
+
+            m = re.fullmatch(r"/series/([^/]+)/amend", path)
+            if m and method == "POST":
+                body = self._json_object(raw)
+                user = auth.require_user(self.headers)
+                key = self._idem_key()
+                return series.amend_idempotent(
+                    user, method, path, key, unquote(m.group(1)), body)
 
             m = re.fullmatch(r"/series/([^/]+)", path)
             if m and method == "GET":

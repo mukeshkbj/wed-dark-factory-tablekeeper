@@ -247,8 +247,23 @@ def _canonical_table_ids(rest, table_ids):
                    "tables are not a declared combination")
 
 
+def closure_conflict(rest_id, table_ids, start_epoch, end_epoch):
+    """True when an applied closure blocks any member table for the span."""
+    wanted = set(table_ids)
+    for closure in state.STATE.get("closures", {}).get(rest_id, []):
+        if closure["table_id"] not in wanted:
+            continue
+        if timeutil.overlaps(start_epoch, end_epoch,
+                             closure["from_epoch"], closure["to_epoch"]):
+            return True
+    return False
+
+
 def _check_overlap(rest_id, table_ids, start_epoch, end_epoch, exclude_ids):
     wanted = set(table_ids)
+    if closure_conflict(rest_id, table_ids, start_epoch, end_epoch):
+        raise ApiError(409, "table_unavailable",
+                       "table is closed for that interval")
     for r in state.STATE["reservations"].values():
         if r["id"] in exclude_ids or r["status"] != "confirmed":
             continue
@@ -363,6 +378,18 @@ def _append_history(res, event, changes):
     history.append(history_entry(
         len(history) + 1, timeutil.rfc3339(_now()), event, changes,
         res.get("revision", 1), _accepted_terms(res)))
+
+
+def append_reassigned_history(res, before_ids, after_ids, plan_id):
+    """Stage-4 operator repair history: always complete table_ids."""
+    history = res.setdefault("history", [])
+    entry = history_entry(
+        len(history) + 1, timeutil.rfc3339(_now()), "reassigned",
+        [{"field": "table_ids", "from": list(before_ids),
+          "to": list(after_ids)}],
+        res.get("revision", 1), _accepted_terms(res))
+    entry["plan_id"] = plan_id
+    history.append(entry)
 
 
 def _changed_plan(res, table_ids, local, party, start, end, policy):

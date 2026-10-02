@@ -99,6 +99,10 @@ def apply_moves(user, body):
             start = plan["start"].timestamp()
             end = plan["end"].timestamp()
         members = set(plan["table_ids"])
+        if reservations.closure_conflict(rest_id, plan["table_ids"],
+                                         start, end):
+            raise ApiError(409, "table_unavailable",
+                           "table is closed for that interval")
         for other in planned[i + 1:]:
             other_start = other.get("start_epoch")
             other_end = other.get("end_epoch")

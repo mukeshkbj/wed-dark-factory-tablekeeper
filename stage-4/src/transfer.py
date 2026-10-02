@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import auth
 import policies
+import replans
 import reservations
 import state
 from errors import ApiError
@@ -52,7 +53,7 @@ def _seed_table_ids(rest, seed):
 
 
 def _normalise_manager_ids(fixture):
-    """Apply the stage-3 R3-2 fixture contract without owning fixtures.py."""
+    """Apply the inherited fixture contract without owning fixtures.py."""
     user_ids = {u["id"] for u in fixture["users"]}
     for rest in fixture["restaurants"]:
         raw = rest.get("manager_user_ids")
@@ -146,9 +147,12 @@ def reset(raw):
         "reference_index": ref_index,
         "policies": {},
         "series": {},
+        "plans": {},
+        "closures": {},
         "restaurant_revisions": {rid: 0 for rid in order},
         "idempotency": {},
-        "counters": {"user": 0, "reservation": 0, "series": 0},
+        "counters": {"user": 0, "reservation": 0, "series": 0,
+                     "plan": 0},
     })
     return 204, None
 
@@ -222,7 +226,8 @@ def _history_shape_ok(history):
         return False
     for index, entry in enumerate(history, 1):
         if (not isinstance(entry, dict) or entry.get("seq") != index
-                or entry.get("event") not in ("created", "changed", "cancelled")
+                or entry.get("event") not in
+                ("created", "changed", "cancelled", "reassigned")
                 or not isinstance(entry.get("changes"), list)
                 or not _terms_shape_ok(entry.get("accepted_terms"))
                 or not isinstance(entry.get("at"), str)
@@ -230,17 +235,164 @@ def _history_shape_ok(history):
                 or isinstance(entry.get("revision"), bool)
                 or entry["revision"] < 1):
             return False
+        if entry["event"] == "reassigned":
+            change = entry["changes"][0] if entry["changes"] else {}
+            if (not isinstance(entry.get("plan_id"), str)
+                    or len(entry["changes"]) != 1
+                    or change.get("field") != "table_ids"
+                    or not isinstance(change.get("from"), list)
+                    or not isinstance(change.get("to"), list)):
+                return False
     return True
 
 
+def _normalise_plan_state(out):
+    """Validate stage-4 plan/closure containers after reservations load."""
+    normalised_closures = {}
+    closure_by_id = {}
+    for rid, closures in out["closures"].items():
+        if rid not in out["restaurants"] or not isinstance(closures, list):
+            raise ApiError(422, "validation_failed", "invalid state")
+        normalised_closures[rid] = []
+        rest = out["restaurants"][rid]
+        table_ids = {t.get("id") for t in rest.get("tables", [])
+                     if isinstance(t, dict)}
+        for closure in closures:
+            if not isinstance(closure, dict):
+                raise ApiError(422, "validation_failed", "invalid state")
+            try:
+                start = replans._parse_instant(closure.get("from"), "from")
+                end = replans._parse_instant(closure.get("to"), "to")
+            except ApiError:
+                raise ApiError(422, "validation_failed", "invalid state")
+            if (not isinstance(closure.get("id"), str)
+                    or closure["id"] in closure_by_id
+                    or closure.get("table_id") not in table_ids
+                    or not start < end):
+                raise ApiError(422, "validation_failed", "invalid state")
+            checked = {
+                "id": closure["id"],
+                "table_id": closure["table_id"],
+                "from": closure["from"],
+                "to": closure["to"],
+                "from_epoch": start,
+                "to_epoch": end,
+            }
+            normalised_closures[rid].append(checked)
+            closure_by_id[checked["id"]] = (rid, checked)
+    out["closures"] = normalised_closures
+
+    applied_closure_ids = {closure["id"]
+                           for closures in out["closures"].values()
+                           for closure in closures}
+    normalised_plans = {}
+    for plan_id, plan in out["plans"].items():
+        if not isinstance(plan, dict) or plan.get("id") != plan_id:
+            raise ApiError(422, "validation_failed", "invalid state")
+        rid = plan.get("restaurant_id")
+        rest = out["restaurants"].get(rid)
+        revision = plan.get("restaurant_revision")
+        if (rest is None or isinstance(revision, bool)
+                or not isinstance(revision, int) or revision < 0
+                or revision > out["restaurant_revisions"].get(rid, 0)
+                or plan.get("status") not in ("pending", "applied")
+                or not isinstance(plan.get("assignments"), list)
+                or not isinstance(plan.get("closure"), dict)):
+            raise ApiError(422, "validation_failed", "invalid state")
+        closure = plan["closure"]
+        try:
+            start = replans._parse_instant(closure.get("from"), "from")
+            end = replans._parse_instant(closure.get("to"), "to")
+        except ApiError:
+            raise ApiError(422, "validation_failed", "invalid state")
+        table_ids = {t.get("id") for t in rest.get("tables", [])
+                     if isinstance(t, dict)}
+        if (closure.get("table_id") not in table_ids or not start < end):
+            raise ApiError(422, "validation_failed", "invalid state")
+        assignments = []
+        references = []
+        seen_reservations = set()
+        for assignment in plan["assignments"]:
+            if not isinstance(assignment, dict):
+                raise ApiError(422, "validation_failed", "invalid state")
+            res_id = assignment.get("reservation_id")
+            res = out["reservations"].get(res_id)
+            if (res is None or res_id in seen_reservations
+                    or res["restaurant_id"] != rid
+                    or res.get("reference") != assignment.get("reference")
+                    or not isinstance(assignment.get("changed"), bool)):
+                raise ApiError(422, "validation_failed", "invalid state")
+            try:
+                before = reservations._canonical_table_ids(
+                    rest, assignment.get("before_table_ids"))
+                after = reservations._canonical_table_ids(
+                    rest, assignment.get("table_ids"))
+            except ApiError:
+                raise ApiError(422, "validation_failed", "invalid state")
+            if assignment["changed"] != (before != after):
+                raise ApiError(422, "validation_failed", "invalid state")
+            references.append(res["reference"])
+            seen_reservations.add(res_id)
+            assignments.append({
+                "reservation_id": res_id,
+                "reference": res["reference"],
+                "before_table_ids": before,
+                "table_ids": after,
+                "changed": assignment["changed"],
+            })
+        if references != sorted(references):
+            raise ApiError(422, "validation_failed", "invalid state")
+        normalised_plans[plan_id] = {
+            "id": plan_id,
+            "restaurant_id": rid,
+            "restaurant_revision": revision,
+            "status": plan["status"],
+            "closure": {
+                "table_id": closure["table_id"],
+                "from": closure["from"],
+                "to": closure["to"],
+                "from_epoch": start,
+                "to_epoch": end,
+            },
+            "assignments": assignments,
+        }
+        if plan["status"] == "applied":
+            if (plan_id not in applied_closure_ids
+                    or revision >= out["restaurant_revisions"].get(rid, 0)):
+                raise ApiError(422, "validation_failed", "invalid state")
+            for assignment in assignments:
+                if not assignment["changed"]:
+                    continue
+                res = out["reservations"][assignment["reservation_id"]]
+                if not any(entry.get("event") == "reassigned"
+                           and entry.get("plan_id") == plan_id
+                           for entry in res.get("history", [])):
+                    raise ApiError(422, "validation_failed", "invalid state")
+    for closure_id in applied_closure_ids:
+        plan = normalised_plans.get(closure_id)
+        if plan is None or plan["status"] != "applied":
+            raise ApiError(422, "validation_failed", "invalid state")
+        closure_rid, stored = closure_by_id[closure_id]
+        if (closure_rid != plan["restaurant_id"]
+                or {k: stored[k] for k in ("table_id", "from", "to")}
+                != {k: plan["closure"][k]
+                    for k in ("table_id", "from", "to")}):
+            raise ApiError(422, "validation_failed", "invalid state")
+    out["plans"] = normalised_plans
+
+
 def _normalise_import_state(st):
-    """Accept stage-1/2/3 state and return the stage-3 shape."""
+    """Accept stage-1/2/3/4 state and return the stage-4 shape."""
     out = copy.deepcopy(st)
     out.setdefault("policies", {})
     out.setdefault("series", {})
+    out.setdefault("plans", {})
+    out.setdefault("closures", {})
     out.setdefault("restaurant_revisions", {})
     if (not isinstance(out["policies"], dict)
             or not isinstance(out["series"], dict)
+            or not isinstance(out["plans"], dict)
+            or not isinstance(out["closures"], dict)
             or not isinstance(out["restaurant_revisions"], dict)):
         raise ApiError(422, "validation_failed", "invalid state")
 
@@ -282,7 +434,7 @@ def _normalise_import_state(st):
     _normalise_imported_managers(out)
 
     counters = out["counters"]
-    for key in ("user", "reservation", "series"):
+    for key in ("user", "reservation", "series", "plan"):
         value = counters.get(key, 0)
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
             raise ApiError(422, "validation_failed", "invalid state")
@@ -336,13 +488,19 @@ def _normalise_import_state(st):
         if sid is not None and sid not in out["series"]:
             raise ApiError(422, "validation_failed", "invalid state")
     for sid, ser in out["series"].items():
+        interval_weeks = ser.get("interval_weeks")
         if (ser.get("id") != sid or ser.get("user_id") not in out["users"]
                 or ser.get("restaurant_id") not in out["restaurants"]
+                or isinstance(interval_weeks, bool)
+                or not isinstance(interval_weeks, int)
+                or not 1 <= interval_weeks <= 4
+                or not 2 <= len(ser["occurrences"]) <= 12
                 or not isinstance(ser.get("revision"), int)
                 or isinstance(ser.get("revision"), bool)
                 or ser["revision"] < 1):
             raise ApiError(422, "validation_failed", "invalid state")
         seen_indices = set()
+        member_ids = set()
         for occurrence in ser["occurrences"]:
             if not isinstance(occurrence, dict):
                 raise ApiError(422, "validation_failed", "invalid state")
@@ -360,7 +518,15 @@ def _normalise_import_state(st):
                     or res.get("restaurant_id") != ser["restaurant_id"]):
                 raise ApiError(422, "validation_failed", "invalid state")
             seen_indices.add(index)
+            member_ids.add(reservation_id)
+        if seen_indices != set(range(len(ser["occurrences"]))):
+            raise ApiError(422, "validation_failed", "invalid state")
+        ser["occurrences"].sort(key=lambda item: item["index"])
+        for res in out["reservations"].values():
+            if res.get("series_id") == sid and res["id"] not in member_ids:
+                raise ApiError(422, "validation_failed", "invalid state")
 
+    _normalise_plan_state(out)
     return out
 
 

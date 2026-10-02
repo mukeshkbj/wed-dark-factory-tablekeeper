@@ -39,7 +39,9 @@ def _required_param(query, name):
     return raw
 
 
-def _taken(confirmed, table_id, start, end):
+def _taken(rest_id, confirmed, table_id, start, end):
+    if reservations.closure_conflict(rest_id, [table_id], start, end):
+        return True
     return any(
         table_id in reservations.reservation_table_ids(r)
         and timeutil.overlaps(start, end, r["start_epoch"], r["end_epoch"])
@@ -94,7 +96,7 @@ def search(query):
         for table in rest["tables"]:
             tid = table["id"]
             capacity_ok = capacities[tid] >= party_size
-            overlap_ok = not _taken(confirmed, tid, start, end)
+            overlap_ok = not _taken(rid, confirmed, tid, start, end)
             available = capacity_ok and overlap_ok
             if explain:
                 explanations.append({
@@ -114,7 +116,7 @@ def search(query):
             capacity = sum(capacities[tid] for tid in pair)
             if capacity < party_size:
                 continue
-            if any(_taken(confirmed, tid, start, end) for tid in pair):
+            if any(_taken(rid, confirmed, tid, start, end) for tid in pair):
                 continue
             options.append({"table_ids": list(pair), "capacity": capacity})
         item = {

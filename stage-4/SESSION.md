@@ -1,3 +1,35 @@
+# Stage-4 build session record — tk-engineer
+
+- Seat: `mukeshkbj/tk-engineer` (domain/API implementer)
+- Harness: Devin CLI over ACP (runtime `devin.exe`, host `jam`)
+- Mandate requested model: `swe`
+- Resolved model id reported by this session: **SWE-2 High** (`swe-2-high`)
+- Room: `9bf93138-25b0-431d-aa62-4a3dbca30155`
+- Date: 2026-10-02
+- Base: verbatim copy of frozen `stage-3/` product tree `d9d04ba`, scaffold
+  commit `c4c09af`
+
+`band brief --json` and `jam brief --json` both fail in this ACP runtime with
+`error: peer not found`; the value above is the model identity the session
+itself reports. Recorded honestly per the dispatch instruction.
+
+Engineer-owned stage-4 implementation:
+
+- `src/replans.py` owns closure preview/apply state and deterministic
+  candidate search.
+- `src/state.py` adds `plans`, `closures`, and `counters.plan` in the existing
+  JSON state behind the same writer lock.
+- `src/reservations.py` exposes one shared closure-conflict check and the
+  `reassigned` history entry.
+- `src/availability.py`, `src/moves.py`, and `src/series.py` use closure-aware
+  occupancy; `src/series.py` adds the owner-only series amendment use case.
+- `src/server.py` routes the two replan endpoints and `/series/{id}/amend`.
+- `src/transfer.py` upgrades stage-1/2/3 exports and validates stage-4
+  plan/closure state atomically.
+- `src/fixtures.py`, `src/timeutil.py`, and `ui/**` remain untouched.
+
+---
+
 # Stage-3 build session record — tk-engineer
 
 - Seat: `mukeshkbj/tk-engineer` (domain/API implementer)

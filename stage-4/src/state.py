@@ -22,9 +22,11 @@ STATE = {
     "reference_index": {},  # reference -> reservation_id
     "policies": {},         # restaurant_id -> [published policy]
     "series": {},           # series_id -> recurring agreement record
+    "plans": {},            # plan_id -> pending/applied replan
+    "closures": {},         # restaurant_id -> [applied table closure]
     "restaurant_revisions": {},  # restaurant_id -> internal write count
     "idempotency": {},      # user_id -> key -> {"scope": {m p: {body,status,response}}}
-    "counters": {"user": 0, "reservation": 0, "series": 0},
+    "counters": {"user": 0, "reservation": 0, "series": 0, "plan": 0},
 }
 
 
@@ -45,9 +47,12 @@ def _fresh():
         "reference_index": {},
         "policies": {},
         "series": {},
+        "plans": {},
+        "closures": {},
         "restaurant_revisions": {},
         "idempotency": {},
-        "counters": {"user": 0, "reservation": 0, "series": 0},
+        "counters": {"user": 0, "reservation": 0, "series": 0,
+                     "plan": 0},
     }
 
 

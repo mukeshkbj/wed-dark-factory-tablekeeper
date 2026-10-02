@@ -1,6 +1,7 @@
-"""Recurring reservation series (stage 3)."""
+"""Recurring reservation series (stages 3 and 4)."""
 
 import copy
+import re
 from datetime import datetime, timedelta
 
 import idempotency
@@ -170,3 +171,87 @@ def get(user, series_id):
     if ser is None or user is None or ser["user_id"] != user["id"]:
         raise ApiError(404, "not_found", "no such series")
     return 200, copy.deepcopy(_view(ser))
+
+
+_HHMM_RE = re.compile(r"^\d{2}:\d{2}$")
+
+
+def _amend_fields(body, count):
+    for field in ("expected_revision", "from_index", "local_time"):
+        if field not in body:
+            raise ApiError(422, "validation_failed",
+                           "%s is required" % field)
+    expected = body["expected_revision"]
+    if (isinstance(expected, bool) or not isinstance(expected, int)
+            or expected < 1):
+        raise ApiError(422, "validation_failed",
+                       "expected_revision must be a positive integer")
+    from_index = body["from_index"]
+    if (isinstance(from_index, bool) or not isinstance(from_index, int)
+            or not 0 <= from_index < count):
+        raise ApiError(422, "validation_failed",
+                       "from_index must name an occurrence")
+    local_time = body["local_time"]
+    if not isinstance(local_time, str) or not _HHMM_RE.match(local_time):
+        raise ApiError(422, "validation_failed",
+                       "local_time must be HH:MM")
+    hour, minute = int(local_time[:2]), int(local_time[3:5])
+    if hour > 23 or minute > 59:
+        raise ApiError(422, "validation_failed",
+                       "local_time must be HH:MM")
+    return expected, from_index, local_time
+
+
+def amend(user, series_id, body):
+    ser = state.STATE["series"].get(series_id)
+    if ser is None or ser["user_id"] != user["id"]:
+        raise ApiError(404, "not_found", "no such series")
+    expected, from_index, local_time = _amend_fields(
+        body, len(ser["occurrences"]))
+    if expected != ser["revision"]:
+        raise ApiError(409, "stale_revision",
+                       "series revision does not match")
+
+    rest = state.STATE["restaurants"][ser["restaurant_id"]]
+    planned = []
+    for occurrence in ser["occurrences"]:
+        if occurrence["index"] < from_index or occurrence["exception"]:
+            continue
+        res = state.STATE["reservations"][occurrence["reservation_id"]]
+        if res["status"] == "cancelled":
+            continue
+        local = "%sT%s" % (res["starts_at_local"][:10], local_time)
+        if local == res["starts_at_local"]:
+            continue
+        plan = reservations.plan_amendment(
+            res, {"starts_at_local": local}, check_occupancy=False)
+        if plan["changed"]:
+            planned.append(plan)
+
+    changed_ids = {plan["reservation"]["id"] for plan in planned}
+    for index, plan in enumerate(planned):
+        start = plan["start"].timestamp()
+        end = plan["end"].timestamp()
+        reservations._check_overlap(rest["id"], plan["table_ids"],
+                                    start, end, changed_ids)
+        for other in planned[:index]:
+            if not set(plan["table_ids"]).intersection(other["table_ids"]):
+                continue
+            if timeutil.overlaps(start, end,
+                                 other["start"].timestamp(),
+                                 other["end"].timestamp()):
+                raise ApiError(409, "table_unavailable",
+                               "series occurrences overlap")
+
+    for plan in planned:
+        reservations._apply_amendment(plan)
+    if planned:
+        ser["revision"] += 1
+        policies.bump_restaurant_revision(rest["id"])
+    return 201, _view(ser)
+
+
+def amend_idempotent(user, method, path, key, series_id, body):
+    return idempotency.execute(
+        user["id"], method, path, key, body,
+        lambda: amend(user, series_id, body))
