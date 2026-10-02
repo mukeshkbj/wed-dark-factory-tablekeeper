@@ -5,7 +5,12 @@ Model reported by this session: **SWE-2 High** (mandate requested `swe`).
 Checked revision: `b424a8be649c8b5194ab2b10ca2b3889ced3530c` (HEAD,
 engineer `14936ad` + experience `b424a8b` on the frozen stage-1 scaffold).
 
-## Verdict: REJECTED — one blocking UI defect (finding S2-1)
+## Verdict: **ACCEPTED at 5be5343** (fix-verified; see Follow-up below)
+
+*Original verdict at b424a8b was REJECTED on blocker S2-1; the repair commit
+5be5343 clears it — all gates green.*
+
+## Verdict (at b424a8b, superseded): REJECTED — one blocking UI defect (finding S2-1)
 
 The API/domain surface is clean on every axis I can reach. The browser
 grid has a DOM-ordering defect that makes EVERY successful search hang for
@@ -74,6 +79,24 @@ suite times out on it 13 times.
   tooling defect on Windows consoles; run evidence in s2-run1).
 - Isolated mode needed `docker pull python:3.12-slim` beforehand — the
   isolated build env has no DNS to resolve the base image.
+
+## Follow-up: S2-1 fix verified @ 5be5343
+
+Commit `5be5343dc361659455c7abcca4430e4be3cb1781` (tk-experience,
+"stage-2 UI repair: detach inactive availability state") resolves S2-1 by
+the recommended fix shape: renderGrid detaches the inapplicable element
+(no-slots on open days, grid+stale cells on closed days) so the OR-selector
+first DOM match is always the visible state.
+
+Re-verification at 5be5343:
+
+| Suite | Command | Result |
+|---|---|---|
+| UI checks incl. U-GRID-6a/b (rewritten to emulate the polling wait_for_selector, since an instantaneous DOM snapshot pre-response is a false negative) | `python verification/stage-2/ui_checks.py --base-url http://localhost:8095` | **82/82 PASS** — evidence/s2/ui-5be5343-r2.log |
+| API checks (full re-run at fix SHA) | `python verification/stage-2/checks.py --base-url http://localhost:8095` | **350/350 PASS**, 0 FAIL, 0 5xx, 825.4s — evidence/s2/checks-5be5343.log |
+| Author unit tests | `python -m unittest discover -s stage-2/tests` | 127/127 OK |
+| Official harness host | `harness run --stage 2 --out s2-run5-postfix` | stage-1 **120/120**, stage-2 **25/25 pass** |
+| Official harness isolated | same + `--mode isolated` -> s2-run6-isolated | stage-1 **120/120**, stage-2 **25/25 pass**, state completed |
 
 ## Held open
 

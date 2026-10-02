@@ -214,6 +214,23 @@ def first_or_visible(page):
         "vis:!!(e.offsetWidth||e.offsetHeight||e.getClientRects().length)}"
         " : null")
 
+def or_wait_settles(page, want_tid):
+    """Emulate wait_for_selector('grid, no-slots', state=visible): poll
+    until the OR-selector wait resolves, then return the FIRST DOM match and
+    whether it is the expected visible element. A hidden first match hangs
+    the official harness (it proceeds with the first resolved element), so
+    settling requires the inapplicable element to be absent or visible."""
+    OR_SEL = ('[data-testid="availability-grid"],'
+              '[data-testid="no-slots"]')
+    try:
+        page.wait_for_selector(OR_SEL, state="visible", timeout=TMO_MS)
+    except Exception:
+        return {"tid": None, "vis": False, "timeout": True}
+    f = first_or_visible(page)
+    if f:
+        f["vis"] = f["vis"] and f["tid"] == want_tid
+    return f
+
 def cell_tid(tid_, hhmm):
     return f"slot-{tid_}-{hhmm}"
 
@@ -268,14 +285,18 @@ def sec_grid(page, ctx_api):
     grid_gone = not visible(page, "availability-grid", 800)
     expect("U-GRID-5", ok and grid_gone, f"no-slots={ok} grid_hidden={grid_gone}")
     shot(page, "no-slots")
-    f = first_or_visible(page)
+    # Emulate the official harness wait: wait_for_selector(OR_SEL,
+    # state=visible) polls and re-resolves each pass; it must settle on the
+    # VISIBLE element, not lock onto a hidden first-DOM-match. Then confirm
+    # the first DOM match at settle time is the expected visible element.
+    f = or_wait_settles(page, "no-slots")
     expect("U-GRID-6a", f and f["vis"],
-           f"closed-day: first OR-selector match visible {f}")
-    # open day again: the first DOM match must be the visible grid
+           f"closed-day: OR-selector wait settles on visible no-slots {f}")
+    # open day again: the wait must settle on the visible grid
     ui_search(page, "r_ui", d0, 2)
-    f = first_or_visible(page)
+    f = or_wait_settles(page, "availability-grid")
     expect("U-GRID-6b", f and f["vis"],
-           f"open-day: first OR-selector match visible {f}")
+           f"open-day: OR-selector wait settles on visible grid {f}")
     return d0
 
 def sec_signed_out_click(page, d0):
