@@ -44,3 +44,16 @@ Held open: hidden judging tests may exceed shipped suite; matrix.md gaps marked.
 - R-13 (engineer): auth.py email regex — literal `local@domain`, no dot.
 Post-repair verifier re-run at new HEAD required before final stage-1
 accepted-SHA declaration.
+
+## Stage-1 repairs landed — HEAD 7a79e89 (2026-10-02)
+
+- `2793d5e` (TK Engineer, R-13): auth.py email regex -> literal local@domain;
+  a@b / x@localhost signups 201; 108 unittests exit 0. Verified by coordinator.
+- `7a79e89` (TK Experience, R-12): fixtures.py floor — label optional,
+  capacity >= 0, cancellation_cutoff_minutes >= 0; extended negative email
+  list; 109 unittests exit 0. Verified by coordinator (diff read).
+- Seat note: engineer runtime had permission-prompt deadlocks earlier
+  (operator resolved host-side); experience raced the R-12 reassignment and
+  landed before stand-down arrived — engineer cancel notice sent (c24c8eaa).
+- Verifier phase-3 re-verify dispatched (1c555bac): re-run checks + model +
+  isolated harness at `7a79e89`; CONFIRMED closes stage-1 accepted SHA.
