@@ -148,14 +148,16 @@ the same gate:
 1. **Stage 1** — ✅ FROZEN @ `aae0226` (`stage-1/` @ `14c9e43`; verifier
    CONFIRMED @`28b16f4` + test-only delta; official 120/120 isolated).
    Evidence: `docs/gates/stage-1-freeze.md`.
-2. **Stage 2** — ACTIVE (this room). Plan below in §12a.
+2. **Stage 2** — ✅ FROZEN @ `ee28d6b` (`stage-2/` product revision
+   `5be5343`; verifier ACCEPTED + coordinator official 120/120 stage-1 and
+   25/25 stage-2 isolated). Evidence: `docs/gates/stage-2-freeze.md`.
 3. **Stage 3** — policies/accepted-terms/history/series; manager screens.
 4. **Stage 4** — series amend + bounded deterministic replans; closure
    preview-and-apply manager screen; DEMO-RUNBOOK.
 5. **Final** — `--all --mode isolated`, clean-clone check, offline
    `harness check`, FACTORY.md fill, final report.
 
-### 12a. Stage-2 run plan (active)
+### 12a. Stage-2 run plan (completed)
 
 Source spec: `D:\tk-official\tablekeeper\spec\stage-2.md` (inherits all of
 stage-1). Clause matrix: `docs/requirements-matrix-stage-2.md` (rulings

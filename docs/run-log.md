@@ -15,7 +15,8 @@ Started 2026-10-01 by the single production dispatch (`dispatch.md`).
 
 | Stage | Accepted revision | Checks | Notes |
 |---|---|---|---|
-| 1 | pending | pending | Coordinator gate 2026-10-02: `harness run --stage 1` @ `811cf5f` → **stage 1 pass (claimed 1)**, stage-2 overshoot correctly fails (no UI). Verifier phase-2 pending — dispatched `docs/handoffs/s1-verifier-phase2.md`. |
+| 1 | `aae0226` (`stage-1/` tree `14c9e43`) | verifier CONFIRMED; official 120/120 isolated | Frozen — `docs/gates/stage-1-freeze.md`. |
+| 2 | `ee28d6b` (`stage-2/` tree `5be5343`) | verifier ACCEPTED; coordinator official 120/120 stage-1 + 25/25 stage-2 isolated | Frozen — `docs/gates/stage-2-freeze.md`. |
 
 ## 2026-10-02 coordinator notes
 
@@ -57,3 +58,15 @@ accepted-SHA declaration.
   landed before stand-down arrived — engineer cancel notice sent (c24c8eaa).
 - Verifier phase-3 re-verify dispatched (1c555bac): re-run checks + model +
   isolated harness at `7a79e89`; CONFIRMED closes stage-1 accepted SHA.
+
+## Stage-2 gate — FROZEN @ ee28d6b (2026-10-02)
+
+- Product revision `5be5343` accepted after S2-1 repair; `ee28d6b` adds verifier
+  evidence only, so `stage-2/` is unchanged from the accepted product tree.
+- Coordinator official harness `s2-run7-coordinator-isolated`: stage-1 120/120,
+  stage-2 25/25, `state: completed`, `mode: isolated`; stage-3 overshoot fails
+  as expected.
+- Verifier final evidence: API 350/350, UI 82/82 including OR-selector guards,
+  upgrade 19/19, model 3x500 ops clean, hardened mode 5/5, official host and
+  isolated stage-2 25/25.
+- Gate record: `docs/gates/stage-2-freeze.md`. Next stage: stage-3 dispatch.
