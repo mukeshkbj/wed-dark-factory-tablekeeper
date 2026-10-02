@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tablekeeper — find your table</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">Table<em>keeper</em></a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/">Find a table</a>
+      <a href="/lookup">Your booking</a>
+    </nav>
+    <div class="header-auth" id="header-auth"></div>
+  </header>
+
+  <main class="page">
+    <section class="hero">
+      <h1>Good evenings start with a held table.</h1>
+      <p>Pick a restaurant, a date and your party size — we will show every
+        open seat, including tables that can be joined for larger groups.</p>
+    </section>
+
+    <section class="card search-card" aria-labelledby="search-heading">
+      <h2 id="search-heading">Find your table</h2>
+      <form id="search-form">
+        <div class="search-fields">
+          <div class="field field-grow">
+            <label for="restaurant-select">Restaurant</label>
+            <select id="restaurant-select" data-testid="restaurant-select"></select>
+          </div>
+          <div class="field">
+            <label for="date-input">Date</label>
+            <input id="date-input" data-testid="date-input" type="date" required>
+          </div>
+          <div class="field">
+            <label for="party-size-input">Party size</label>
+            <input id="party-size-input" data-testid="party-size-input"
+                   type="number" min="1" max="64" step="1" value="2" required>
+          </div>
+          <button class="btn btn-primary" data-testid="search-button"
+                  type="submit">Search</button>
+        </div>
+      </form>
+      <p class="search-note">Times are the restaurant's local time.
+        Combined options join two tables the restaurant has paired.</p>
+      <p class="status-line" id="search-status" role="status"></p>
+      <div id="auth-nudge"></div>
+    </section>
+
+    <section class="results" aria-labelledby="results-heading">
+      <h2 id="results-heading">Availability</h2>
+      <p class="sub" id="results-sub"></p>
+
+      <div id="results-empty" class="results-empty">
+        Choose a restaurant and date above to see open tables.
+      </div>
+
+      <div id="loading-slot"></div>
+
+      <div data-testid="no-slots" class="card no-slots-card" hidden>
+        <strong>No tables that day</strong>
+        The restaurant is closed, or nothing fits this party size.
+        Try another date.
+      </div>
+
+      <div class="grid-scroll" id="grid-scroll" hidden>
+        <table class="avail-table" data-testid="availability-grid"
+               id="availability-grid"></table>
+      </div>
+    </section>
+
+    <div id="booking-slot"></div>
+    <div id="confirmation-slot"></div>
+  </main>
+
+  <footer class="site-footer">
+    Tablekeeper — a reservation service demo. All data is synthetic.
+  </footer>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/index.js"></script>
+</body>
+</html>

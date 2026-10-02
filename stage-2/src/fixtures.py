@@ -14,14 +14,22 @@ module first and fall back to `_stub_fixtures` only on ImportError):
         never 5xx, and state stays unchanged. R-12 validation floor:
         table `label` is optional (string when present), `capacity`
         and `cancellation_cutoff_minutes` are integers >= 0; R-15:
-        empty-string ids are acceptable.
+        empty-string ids are acceptable. Stage-2 R2-4: optional
+        restaurant `combinable` is a list of pairs of two distinct
+        existing table ids; equivalent duplicates collapse to the
+        first occurrence and the validated restaurant dict exposes
+        `combinable` as a list of [a, b] pairs in declared order.
+        Stage-2 C1-6/R2-8: seeded reservations may carry `table_ids`
+        (a set of one, or a declared combinable pair of the
+        restaurant) instead of `table_id`.
 
     demo_seed() -> dict
         An attractive, fully synthetic demo fixture that passes
         validate_fixture: three restaurants in three timezones, human
-        table labels, two demo users including the documented account
-        demo@tablekeeper.test / demo-pass-123, and four seeded
-        confirmed reservations.
+        table labels, declared combinable pairs, two demo users
+        including the documented account
+        demo@tablekeeper.test / demo-pass-123, and seeded confirmed
+        reservations including one combined-table booking.
 """
 
 import copy
@@ -149,7 +157,73 @@ def _validate_restaurants(restaurants):
             if not _is_int(t.get("capacity")) or t["capacity"] < 0:
                 _fail("table.capacity must be an integer >= 0")
         table_ids[rid] = tids
+        r["combinable"] = _check_combinable(r.get("combinable"), tids)
     return ids, table_ids
+
+
+def _check_combinable(raw, tids):
+    """Stage-2 R2-4: optional list of unordered pairs of two DISTINCT
+    existing table ids of this restaurant. Malformed entries fail the
+    whole fixture (422, state unchanged). Duplicate equivalent pairs
+    ([a,b] twice or [a,b]+[b,a]) are legal and collapse to the first
+    occurrence's declared order. Absent field normalises to []."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        _fail("restaurant.combinable must be an array of table-id pairs")
+    pairs, seen = [], set()
+    for entry in raw:
+        if not isinstance(entry, list) or len(entry) != 2:
+            _fail("restaurant.combinable entries must be pairs of "
+                  "table ids")
+        a, b = entry
+        if not isinstance(a, str) or not isinstance(b, str):
+            _fail("restaurant.combinable entries must be table id strings")
+        if a == b:
+            _fail("restaurant.combinable pair needs two distinct tables")
+        if a not in tids or b not in tids:
+            _fail("restaurant.combinable pair must name tables of the "
+                  "same restaurant")
+        key = frozenset((a, b))
+        if key in seen:
+            continue
+        seen.add(key)
+        pairs.append([a, b])
+    return pairs
+
+
+def _check_seed_tables(res, rest_id, table_ids, restaurants_by_id):
+    """Stage-2 C1-6/R2-8: a seeded reservation names exactly one of
+    table_id or table_ids; a two-table seed must be a combinable pair
+    declared by that restaurant."""
+    has_one = "table_id" in res
+    has_many = "table_ids" in res
+    if has_one == has_many:
+        _fail("reservation needs exactly one of table_id or table_ids")
+    if has_one:
+        if res["table_id"] not in table_ids[rest_id]:
+            _fail("reservation.table_id does not belong to that "
+                  "restaurant")
+        return
+    ids = res["table_ids"]
+    if not isinstance(ids, list) or not ids:
+        _fail("reservation.table_ids must be a non-empty array")
+    for tid in ids:
+        if not isinstance(tid, str):
+            _fail("reservation.table_ids entries must be strings")
+        if tid not in table_ids[rest_id]:
+            _fail("reservation.table_ids member does not belong to "
+                  "that restaurant")
+    if len(set(ids)) != len(ids):
+        _fail("duplicate table id in reservation.table_ids")
+    if len(ids) > 2:
+        _fail("reservation.table_ids holds at most two tables")
+    if len(ids) == 2:
+        declared = {frozenset(p) for p in
+                    restaurants_by_id[rest_id].get("combinable") or []}
+        if frozenset(ids) not in declared:
+            _fail("reservation.table_ids pair is not a declared "
+                  "combinable pair of that restaurant")
 
 
 def _validate_reservations(reservations, user_ids, rest_ids, table_ids,
@@ -168,9 +242,7 @@ def _validate_reservations(reservations, user_ids, rest_ids, table_ids,
         if rest_id not in rest_ids:
             _fail("reservation.restaurant_id does not name a fixture "
                   "restaurant")
-        if res.get("table_id") not in table_ids[rest_id]:
-            _fail("reservation.table_id does not belong to that "
-                  "restaurant")
+        _check_seed_tables(res, rest_id, table_ids, restaurants_by_id)
         if not _is_int(res.get("party_size")) or res["party_size"] < 1:
             _fail("reservation.party_size must be an integer >= 1")
         local = res.get("starts_at_local")
@@ -239,6 +311,10 @@ def demo_seed():
                     {"id": "t_alcove", "label": "Canal Alcove",
                      "capacity": 6},
                 ],
+                "combinable": [
+                    ["t_window", "t_counter"],
+                    ["t_counter", "t_alcove"],
+                ],
             },
             {
                 "id": "r_marlowe",
@@ -281,6 +357,9 @@ def demo_seed():
                     {"id": "t_perch", "label": "Solo Perch",
                      "capacity": 1},
                 ],
+                "combinable": [
+                    ["t_hinoki", "t_garden"],
+                ],
             },
         ],
         "reservations": [
@@ -302,6 +381,11 @@ def demo_seed():
             {"id": "res_seed_4", "reference": "KAPP0X",
              "user_id": "u_demo", "restaurant_id": "r_lumen",
              "table_id": "t_hinoki", "party_size": 3,
+             "starts_at_local": "2026-10-03T19:00",
+             "status": "confirmed"},
+            {"id": "res_seed_5", "reference": "DUO8NK",
+             "user_id": "u_demo", "restaurant_id": "r_anker",
+             "table_ids": ["t_window", "t_counter"], "party_size": 6,
              "starts_at_local": "2026-10-03T19:00",
              "status": "confirmed"},
         ],

@@ -62,7 +62,7 @@ class AcceptValid(unittest.TestCase):
     def test_demo_seed_validates(self):
         out = fixtures.validate_fixture(fixtures.demo_seed())
         self.assertEqual(len(out["restaurants"]), 3)
-        self.assertEqual(len(out["reservations"]), 4)
+        self.assertEqual(len(out["reservations"]), 5)
         demo = [u for u in out["users"]
                 if u["email"] == "demo@tablekeeper.test"]
         self.assertEqual(demo[0]["password"], "demo-pass-123")
@@ -85,6 +85,68 @@ class Rejections(unittest.TestCase):
         self.assertEqual(ctx.exception.status, 422)
         self.assertEqual(ctx.exception.code, "validation_failed")
         return ctx.exception
+
+    def test_combinable_normalised(self):
+        # R2-4: duplicates collapse, declared order kept, absent -> []
+        out = fixtures.validate_fixture(_fixture(restaurants=[
+            _restaurant(
+                tables=[{"id": "t_1", "capacity": 2},
+                        {"id": "t_2", "capacity": 4},
+                        {"id": "t_3", "capacity": 4}],
+                combinable=[["t_1", "t_2"], ["t_2", "t_1"],
+                            ["t_2", "t_3"]])]))
+        self.assertEqual(out["restaurants"][0]["combinable"],
+                         [["t_1", "t_2"], ["t_2", "t_3"]])
+        out = fixtures.validate_fixture(_fixture())
+        self.assertEqual(out["restaurants"][0]["combinable"], [])
+
+    def test_combinable_rejections(self):
+        def bad(combinable):
+            self.assertFails(_fixture(restaurants=[_restaurant(
+                tables=[{"id": "t_1", "capacity": 2},
+                        {"id": "t_2", "capacity": 4},
+                        {"id": "t_3", "capacity": 4}],
+                combinable=combinable)]))
+
+        bad("t_1,t_2")                    # not a list
+        bad([["t_1", "t_2", "t_3"]])      # triple
+        bad([["t_1"]])                    # single
+        bad([["t_1", "t_1"]])             # not distinct
+        bad([["t_1", "t_9"]])             # unknown table
+        bad([[1, "t_2"]])                 # non-string id
+        bad([["t_1", "t_2"], "t_3"])      # malformed entry
+
+    def test_seeded_table_ids(self):
+        # C1-6 / R2-8: seeds may carry table_ids; a pair must be a
+        # declared combinable pair of that restaurant
+        rest = _restaurant(
+            tables=[{"id": "t_1", "capacity": 2},
+                    {"id": "t_2", "capacity": 4},
+                    {"id": "t_3", "capacity": 4}],
+            combinable=[["t_1", "t_2"]])
+        base = {"id": "res_1", "reference": "K3P7QW", "user_id": "u_1",
+                "restaurant_id": "r_1", "party_size": 2,
+                "starts_at_local": "2026-10-01T19:00",
+                "status": "confirmed"}
+
+        def res(**over):
+            r = dict(base)
+            r.update(over)
+            return _fixture(restaurants=[rest], reservations=[r])
+
+        # declared pair, either order; set of one
+        fixtures.validate_fixture(res(table_ids=["t_1", "t_2"]))
+        fixtures.validate_fixture(res(table_ids=["t_2", "t_1"]))
+        fixtures.validate_fixture(res(table_ids=["t_1"]))
+        # rejections: undeclared pair, triple, empty, dupes, unknown,
+        # both selector fields
+        self.assertFails(res(table_ids=["t_1", "t_3"]))
+        self.assertFails(res(table_ids=["t_1", "t_2", "t_3"]))
+        self.assertFails(res(table_ids=[]))
+        self.assertFails(res(table_ids=["t_1", "t_1"]))
+        self.assertFails(res(table_ids=["t_9"]))
+        self.assertFails(res(table_ids="t_1"))
+        self.assertFails(res(table_id="t_1", table_ids=["t_1"]))
 
     def test_non_dict_body(self):
         for body in ([], "x", 4, None, True):
@@ -214,8 +276,18 @@ class DemoSeedCoherence(unittest.TestCase):
             with self.subTest(reservation=res["id"]):
                 rest = rests[res["restaurant_id"]]
                 self.assertIn(res["user_id"], user_ids)
-                owner_rid, table = tables[res["table_id"]]
-                self.assertEqual(owner_rid, res["restaurant_id"])
+                # stage-2: a seed holds table_id or a combinable pair
+                res_tables = res.get(
+                    "table_ids", [res.get("table_id")])
+                capacity = 0
+                for tid in res_tables:
+                    owner_rid, table = tables[tid]
+                    self.assertEqual(owner_rid, res["restaurant_id"])
+                    capacity += table["capacity"]
+                if len(res_tables) == 2:
+                    pairs = {frozenset(p)
+                             for p in rest.get("combinable") or []}
+                    self.assertIn(frozenset(res_tables), pairs)
                 local = res["starts_at_local"]
                 start = timeutil.resolve_local(rest["timezone"], local)
                 end = timeutil.add_absolute(
@@ -225,15 +297,15 @@ class DemoSeedCoherence(unittest.TestCase):
                 grid = {s["starts_at_local"] for s in
                         timeutil.slots_for_day(rest, local[:10])}
                 self.assertIn(local, grid)
-                self.assertGreaterEqual(table["capacity"],
-                                        res["party_size"])
-                for o_start, o_end in occupancy.get(res["table_id"], []):
-                    self.assertFalse(
-                        timeutil.overlaps(start.timestamp(),
-                                          end.timestamp(),
-                                          o_start, o_end))
-                occupancy.setdefault(res["table_id"], []).append(
-                    (start.timestamp(), end.timestamp()))
+                self.assertGreaterEqual(capacity, res["party_size"])
+                for tid in res_tables:
+                    for o_start, o_end in occupancy.get(tid, []):
+                        self.assertFalse(
+                            timeutil.overlaps(start.timestamp(),
+                                              end.timestamp(),
+                                              o_start, o_end))
+                    occupancy.setdefault(tid, []).append(
+                        (start.timestamp(), end.timestamp()))
 
 
 if __name__ == "__main__":
