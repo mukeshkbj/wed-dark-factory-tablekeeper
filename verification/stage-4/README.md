@@ -86,7 +86,7 @@ summary line counts checks, fails, and 5xx/connection errors separately.
 | `upgrade_checks.py` (s1+s2+s3+s4) | 62/62 PASS, ~140s |
 | `--hardened` (`TK_HARDENED=1`) | 5/5 PASS |
 | `ui_checks.py` (inherited s2 browser contract) | 82/82 PASS |
-| Full combined run (inherited + s4) | see phase-2 evidence |
+| Full combined run (inherited + s4) | 862/862 PASS, 0 5xx, 2337s (clean re-run incl. late-day fixture fixes) |
 
 All phase-1 failures observed were verifier defects (tuple unwrap,
 stale tokens after mid-check resets, `err_code` shape, non-existent
