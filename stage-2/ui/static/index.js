@@ -28,6 +28,8 @@
   var resultsEmpty = document.getElementById("results-empty");
   var loadingSlot = document.getElementById("loading-slot");
   var noSlots = document.querySelector('[data-testid="no-slots"]');
+  var noSlotsParent = noSlots.parentNode;
+  var noSlotsNext = noSlots.nextSibling;
   var gridScroll = document.getElementById("grid-scroll");
   var gridEl = document.getElementById("availability-grid");
   var bookingSlot = document.getElementById("booking-slot");
@@ -182,6 +184,26 @@
 
   /* ---- grid ----------------------------------------------------------- */
 
+  /* S2-1: after a completed search the inapplicable element leaves the DOM
+     entirely, so a client waiting on the OR-selector
+     "availability-grid, no-slots" can only resolve the visible node —
+     DOM order can no longer hand it a hidden match. */
+  function showGrid() {
+    if (noSlots.parentNode) noSlots.parentNode.removeChild(noSlots);
+    if (gridEl.parentNode !== gridScroll) gridScroll.appendChild(gridEl);
+    gridScroll.hidden = false;
+  }
+
+  function showNoSlots() {
+    gridEl.innerHTML = "";   // stale cells stop matching too
+    if (gridEl.parentNode) gridEl.parentNode.removeChild(gridEl);
+    gridScroll.hidden = true;
+    if (!noSlots.parentNode) {
+      noSlotsParent.insertBefore(noSlots, noSlotsNext);
+    }
+    noSlots.hidden = false;
+  }
+
   function renderGrid(rest, data, params) {
     resultsEmpty.hidden = true;
     gridEl.innerHTML = "";
@@ -191,12 +213,10 @@
       " · party of " + params.party + " (" + data.timezone + ")";
 
     if (!data.slots.length) {
-      gridScroll.hidden = true;
-      noSlots.hidden = false;
+      showNoSlots();
       return;
     }
-    noSlots.hidden = true;
-    gridScroll.hidden = false;
+    showGrid();
 
     var pairs = rest.combinable || [];
     var pairKey = function (ids) { return ids.slice().sort().join("+"); };
