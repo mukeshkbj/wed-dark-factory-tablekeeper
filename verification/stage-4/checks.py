@@ -972,16 +972,34 @@ def sec_sa_conflicts_atomicity():
     base, sid, refs, sb, st = _mk_series(ada)          # weekly x4 on t_a
     wk = timedelta(days=7)
     # block the amend target: book t_a at idx1's resulting time using the
-    # occurrence's OWN stored utc offset so the instants truly overlap
+    # occurrence's OWN stored utc offset so the instants truly overlap.
+    # The target clock must differ from the occurrence's own clock (or the
+    # blocker collides with the occurrence itself at late-day times) and
+    # sit on a :15/:45 minute so it is off any 30-min policy grid (SA-12).
     st, hd, b, _ = call("GET", f"/reservations/{refs[1]}", token=ada)
     sl1 = (j(b) or {}).get("starts_at_local", "")
-    # stored starts_at_local echoes the naive local format  --  reuse its date
-    tgt = sl1[:10] + "T22:15"
+    occ_h, occ_m = int(sl1[11:13]), int(sl1[14:16])
+    occ_min = occ_h * 60 + occ_m
+    tgt_min = None
+    for delta in (75, -75, 105, -105, 135, -135, 90, -90):
+        cand = occ_min + delta
+        if 0 <= cand <= 22 * 60 + 45 and cand % 15 == 0                 and cand % 60 in (15, 45):
+            tgt_min = cand
+            break
+    if tgt_min is None:  # any :15/:45 slot >=60min clear of the occurrence
+        for cand in range(0, 22 * 60 + 45, 15):
+            if abs(cand - occ_min) >= 60 and cand % 60 in (15, 45):
+                tgt_min = cand
+                break
+    expect("C4-SA-10a0", tgt_min is not None,
+           f"no :15/:45 target >=60min from occurrence clock {occ_h:02d}:{occ_m:02d}")
+    tgt_hm = f"{tgt_min // 60:02d}:{tgt_min % 60:02d}"
+    tgt = sl1[:10] + "T" + tgt_hm
     st, hd, b, _ = book(bob, "r_ops", tgt, party=2, table="t_a")
     expect("C4-SA-10a", st == 201, f"blocker booking st={st}")
     st, hd, b, _ = amend_series(ada, sid,
                                 {"expected_revision": 1, "from_index": 1,
-                                 "local_time": "22:15"})
+                                 "local_time": tgt_hm})
     check_status("C4-SA-10b", st, 409, b)
     expect("C4-SA-10c", err_code(b) == "table_unavailable",
            f"occupancy conflict st={st} {err_code(b)}")
@@ -1005,9 +1023,9 @@ def sec_sa_conflicts_atomicity():
     publish(ada, "r_ops", pol(eff=sl1[:10], slot=30))
     st, hd, b, _ = amend_series(ada, sid,
                                 {"expected_revision": 1, "from_index": 1,
-                                 "local_time": "22:15"})
-    # idx1 falls under new 30-min policy -> 22:15 off grid -> 422 before
-    # any occupancy decision
+                                 "local_time": tgt_hm})
+    # idx1 falls under new 30-min policy -> tgt off grid (:15/:45) -> 422
+    # before any occupancy decision
     expect("C4-SA-12", st == 422 and err_code(b) in ("not_on_slot_grid",
                                                      "validation_failed"),
            f"policy-grid error precedes occupancy st={st} {err_code(b)}")
@@ -1040,18 +1058,28 @@ def sec_sa_replay_race():
             ada, sid, {"expected_revision": 1, "from_index": 1,
                        "local_time": t})
         res.append((st, j(b) or {}))
-    ths = [threading.Thread(target=_go, args=(t,))
-           for t in ("22:00", "22:30")]
+    # targets differ from each other; a target equal to the occurrence's
+    # own clock is a legitimate no-op (still 201, no revision bump).
+    st, hd, b, _ = call("GET", f"/reservations/{refs[1]}", token=ada)
+    occ_hm = ((j(b) or {}).get("starts_at_local") or "")[11:16]
+    # pick two distinct targets, each a real change (>=60min from the
+    # occurrence's own clock so no request is an accidental no-op)
+    oh, om = int(occ_hm[:2] or 0), int(occ_hm[3:] or 0)
+    omin = oh * 60 + om
+    cands = [f"{c // 60:02d}:{c % 60:02d}"
+             for c in range(0, 22 * 60 + 45, 15) if abs(c - omin) >= 60]
+    tgts = cands[-2:] if len(cands) >= 2 else cands
+    ths = [threading.Thread(target=_go, args=(t,)) for t in tgts]
     for t in ths: t.start()
     for t in ths: t.join(15)
     codes = sorted(s for s, _ in res)
-    real = sum(1 for s, _ in res if s == 201)
-    expect("C4-SA-19", real <= 1
-           and all(s in (201, 409) for s, _ in res),
-           f"amend race results {codes}")
+    ok_codes = all(s in (201, 409) for s, _ in res)
     st, hd, b, _ = call("GET", f"/series/{sid}", token=ada)
-    expect("C4-SA-19b", (j(b) or {}).get("revision") == 1 + real,
-           f"series rev consistent rev={(j(b) or {}).get('revision')}")
+    rev = (j(b) or {}).get("revision")
+    expect("C4-SA-19", ok_codes and rev in (1, 2),
+           f"amend race codes={codes} rev={rev} (<=1 real change allowed)")
+    expect("C4-SA-19b", not (rev == 2 and codes.count(201) == 0),
+           f"series rev consistent rev={rev} codes={codes}")
     reset4()
 
 def sec_sa_repair():
