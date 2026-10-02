@@ -84,3 +84,12 @@ accepted-SHA declaration.
   5/5, inherited browser contract 82/82, official host and isolated stage-3
   7/7 with inherited stages green.
 - Gate record: `docs/gates/stage-3-freeze.md`. Next stage: stage-4 dispatch.
+
+## Stage-4 dispatch — ACTIVE (2026-10-02)
+
+- Requirements matrix: `docs/requirements-matrix-stage-4.md` (R4-1..R4-24).
+- Handoffs: `docs/handoffs/s4-engineer-task.md`, `s4-experience-task.md`,
+  `s4-verifier-task.md`.
+- Shared board: `#8` engineer, `#9` experience, `#10` verifier.
+- Gate: verifier CONFIRMED plus coordinator-run official `--stage 4 --mode
+  isolated` pass before `stage-4/` freezes.

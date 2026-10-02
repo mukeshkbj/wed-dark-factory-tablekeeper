@@ -155,8 +155,8 @@ the same gate:
    `d9d04ba`; verifier CONFIRMED + coordinator official 120/120 stage-1,
    25/25 stage-2, 7/7 stage-3 isolated). Evidence:
    `docs/gates/stage-3-freeze.md`.
-4. **Stage 4** — series amend + bounded deterministic replans; closure
-   preview-and-apply manager screen; DEMO-RUNBOOK.
+4. **Stage 4** — ACTIVE (this room): closure replans + series amendments;
+   no new screens required. Plan below in §12c.
 5. **Final** — `--all --mode isolated`, clean-clone check, offline
    `harness check`, FACTORY.md fill, final report.
 
@@ -220,6 +220,33 @@ browser surface.
 
 Gate: verifier CONFIRMED **and** coordinator-run official harness
 `--stage 3 --mode isolated` pass → `docs/gates/stage-3-freeze.md` → stage 4.
+
+### 12c. Stage-4 run plan (active)
+
+Source spec: `D:\tk-official\tablekeeper\spec\stage-4.md` (inherits stages 1–3).
+Clause matrix: `docs/requirements-matrix-stage-4.md` (rulings R4-1..R4-24).
+Contract deltas vs stage-3: manager-only replan preview/apply, persistent
+closures, deterministic optimal reassignment, `reassigned` history, stage-4
+series clock-time amendments, closure-aware occupancy/explain, and stage-1–3
+export upgrade. The stage-4 spec explicitly requires no new screens; the
+inherited stage-2 UI remains the browser surface.
+
+1. **tk-engineer** — copy `stage-3/` → `stage-4/` verbatim (no pycache), then
+   extend the API/domain: replan preview, plan apply, closures, closure-aware
+   occupancy/explain, series amend, upgrade import, Dockerfile/RUN.md.
+2. **tk-experience** — preserve fixture/manager/demo-seed coherence and the
+   inherited UI; add only a focused owned browser/closure regression check if
+   practical. No new screens are required.
+3. **tk-verifier** — `verification/stage-4/` spec-derived matrix/checks
+   (replans, apply/stale/replay, closures, series amend, upgrade, concurrency,
+   atomicity), then official harness `--stage 4` host + isolated and a
+   CONFIRMED/HELD verdict. Never repairs product code.
+4. **tk-coordinator** — matrix + plan (done), board, rulings, gate run,
+   freeze `stage-4/` at accepted revision.
+
+Gate: verifier CONFIRMED **and** coordinator-run official harness
+`--stage 4 --mode isolated` pass → `docs/gates/stage-4-freeze.md` → final
+packaging.
 
 Architecture the service grows into:
 
