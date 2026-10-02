@@ -14,6 +14,23 @@ itself reports. Recorded honestly per the dispatch instruction.
 
 ---
 
+# tk-experience — stage-3 session record
+
+- Seat: `mukeshkbj/tk-experience` (experience implementer — fixture/demo
+  seed slice of stage-3; UI inherited byte-stable per D-5/R3-15)
+- Harness: Devin CLI over ACP (embedded in `jam`)
+- Mandate requested model: `swe`
+- Resolved model id reported by this session: **SWE-2 High** (`swe-2-high`)
+- Room: `9bf93138-25b0-431d-aa62-4a3dbca30155` · Date: 2026-10-02
+- Base: scaffold `c23f857` + engineer feature commit `d8a0599`
+
+Owned deliverables: `src/fixtures.py` (`manager_user_ids`
+validation/default per R3-2, demo seed manager coverage) and
+`tests/test_fixtures.py` focused additions. `ui/` untouched. Everything
+else in `src/` is the engineer's — unmodified.
+
+---
+
 # Stage-2 session records copied with the frozen tree
 
 # tk-engineer

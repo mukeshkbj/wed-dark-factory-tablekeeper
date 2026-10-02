@@ -21,15 +21,21 @@ module first and fall back to `_stub_fixtures` only on ImportError):
         `combinable` as a list of [a, b] pairs in declared order.
         Stage-2 C1-6/R2-8: seeded reservations may carry `table_ids`
         (a set of one, or a declared combinable pair of the
-        restaurant) instead of `table_id`.
+        restaurant) instead of `table_id`. Stage-3 R3-2/P-1: optional
+        restaurant `manager_user_ids` is a list of existing fixture
+        user ids; absent normalises to [], equivalent duplicates
+        collapse to the first occurrence's order, and malformed,
+        non-string, over-length or unknown-user entries fail the
+        fixture.
 
     demo_seed() -> dict
         An attractive, fully synthetic demo fixture that passes
         validate_fixture: three restaurants in three timezones, human
-        table labels, declared combinable pairs, two demo users
+        table labels, declared combinable pairs, three demo users
         including the documented account
-        demo@tablekeeper.test / demo-pass-123, and seeded confirmed
-        reservations including one combined-table booking.
+        demo@tablekeeper.test / demo-pass-123 and a seeded restaurant
+        manager, and seeded confirmed reservations including one
+        combined-table booking.
 """
 
 import copy
@@ -101,7 +107,7 @@ def _validate_users(users):
     return ids
 
 
-def _validate_restaurants(restaurants):
+def _validate_restaurants(restaurants, user_ids):
     ids = set()
     table_ids = {}
     for r in restaurants:
@@ -158,7 +164,34 @@ def _validate_restaurants(restaurants):
                 _fail("table.capacity must be an integer >= 0")
         table_ids[rid] = tids
         r["combinable"] = _check_combinable(r.get("combinable"), tids)
+        r["manager_user_ids"] = _check_manager_ids(
+            r.get("manager_user_ids"), user_ids)
     return ids, table_ids
+
+
+def _check_manager_ids(raw, user_ids):
+    """Stage-3 R3-2/P-1: optional list of existing fixture user ids.
+    Absent field normalises to []. Equivalent duplicates collapse to
+    the first occurrence's order. Non-list values, non-string or
+    over-length entries and ids naming no fixture user are invalid
+    fixture content and fail the whole fixture (422, state
+    unchanged)."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        _fail("restaurant.manager_user_ids must be an array of user ids")
+    managers, seen = [], set()
+    for uid in raw:
+        if not isinstance(uid, str) or len(uid) > 64:
+            _fail("restaurant.manager_user_ids entries must be user id "
+                  "strings of at most 64 chars")
+        if uid not in user_ids:
+            _fail("restaurant.manager_user_ids must name fixture users")
+        if uid in seen:
+            continue
+        seen.add(uid)
+        managers.append(uid)
+    return managers
 
 
 def _check_combinable(raw, tids):
@@ -275,7 +308,7 @@ def validate_fixture(body):
         _fail("users, restaurants and reservations must be arrays")
 
     user_ids = _validate_users(users)
-    rest_ids, table_ids = _validate_restaurants(restaurants)
+    rest_ids, table_ids = _validate_restaurants(restaurants, user_ids)
     restaurants_by_id = {r["id"]: r for r in restaurants}
     _validate_reservations(reservations, user_ids, rest_ids, table_ids,
                            restaurants_by_id)
@@ -290,6 +323,8 @@ def demo_seed():
              "password": "demo-pass-123", "display_name": "Demo Diner"},
             {"id": "u_mira", "email": "mira@tablekeeper.test",
              "password": "mira-pass-456", "display_name": "Mira Solene"},
+            {"id": "u_ines", "email": "ines@tablekeeper.test",
+             "password": "ines-pass-789", "display_name": "Ines Duarte"},
         ],
         "restaurants": [
             {
@@ -315,6 +350,7 @@ def demo_seed():
                     ["t_window", "t_counter"],
                     ["t_counter", "t_alcove"],
                 ],
+                "manager_user_ids": ["u_ines"],
             },
             {
                 "id": "r_marlowe",
@@ -360,6 +396,7 @@ def demo_seed():
                 "combinable": [
                     ["t_hinoki", "t_garden"],
                 ],
+                "manager_user_ids": ["u_ines"],
             },
         ],
         "reservations": [

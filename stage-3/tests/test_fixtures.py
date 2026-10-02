@@ -1,9 +1,9 @@
-"""Spec-derived unit tests for stage-1/src/fixtures.py (spec section 4,
-coordinator rulings R-1/R-3/G-5: reset-side failures -> 422
-validation_failed).
+"""Spec-derived unit tests for stage-3/src/fixtures.py (stage-1 spec
+section 4, coordinator rulings R-1/R-3/G-5: reset-side failures -> 422
+validation_failed; stage-3 R3-2: restaurant manager_user_ids).
 
 Run from anywhere:
-    python stage-1/tests/test_fixtures.py
+    python stage-3/tests/test_fixtures.py
 """
 
 import os
@@ -147,6 +147,53 @@ class Rejections(unittest.TestCase):
         self.assertFails(res(table_ids=["t_9"]))
         self.assertFails(res(table_ids="t_1"))
         self.assertFails(res(table_id="t_1", table_ids=["t_1"]))
+
+    def test_manager_user_ids(self):
+        # R3-2 / P-1: absent -> []; a valid list is kept in declared
+        # order; equivalent duplicates collapse to the first occurrence.
+        out = fixtures.validate_fixture(_fixture())
+        self.assertEqual(
+            out["restaurants"][0]["manager_user_ids"], [])
+
+        two_users = [_user(),
+                     _user(id="u_2", email="bob@example.com")]
+        out = fixtures.validate_fixture(_fixture(
+            users=two_users,
+            restaurants=[_restaurant(manager_user_ids=["u_2", "u_1"])]))
+        self.assertEqual(out["restaurants"][0]["manager_user_ids"],
+                         ["u_2", "u_1"])
+
+        out = fixtures.validate_fixture(_fixture(
+            users=two_users,
+            restaurants=[_restaurant(
+                manager_user_ids=["u_1", "u_1", "u_2", "u_1"])]))
+        self.assertEqual(out["restaurants"][0]["manager_user_ids"],
+                         ["u_1", "u_2"])
+
+    def test_manager_user_ids_rejections(self):
+        def bad(managers):
+            self.assertFails(_fixture(restaurants=[
+                _restaurant(manager_user_ids=managers)]))
+
+        bad("u_1")                  # not a list
+        bad({"id": "u_1"})          # not a list
+        bad([123])                  # non-string entry
+        bad([None])                 # non-string entry
+        bad([["u_1"]])              # non-string entry
+        bad(["x" * 65])             # over-length entry
+        bad(["u_ghost"])            # unknown user
+        bad(["u_1", "u_ghost"])     # one unknown member
+
+    def test_manager_user_ids_failed_reset_leaves_no_output(self):
+        # validate_fixture raises before returning the parsed copy, so
+        # the reset path never swaps state on a rejected fixture. The
+        # HTTP-level proof (export unchanged after a failed reset) lives
+        # in test_stage3.py.
+        self.assertFails(_fixture(restaurants=[
+            _restaurant(manager_user_ids=["u_ghost"])]))
+        out = fixtures.validate_fixture(_fixture())
+        self.assertEqual(
+            out["restaurants"][0]["manager_user_ids"], [])
 
     def test_non_dict_body(self):
         for body in ([], "x", 4, None, True):
@@ -306,6 +353,19 @@ class DemoSeedCoherence(unittest.TestCase):
                                               o_start, o_end))
                     occupancy.setdefault(tid, []).append(
                         (start.timestamp(), end.timestamp()))
+
+    def test_demo_seed_manager_coverage(self):
+        # Stage-3 R3-2: at least one restaurant declares seeded
+        # managers so policy publication is demonstrable, and every
+        # manager id must name a fixture user.
+        out = fixtures.validate_fixture(fixtures.demo_seed())
+        user_ids = {u["id"] for u in out["users"]}
+        managed = [r["id"] for r in out["restaurants"]
+                   if r["manager_user_ids"]]
+        self.assertTrue(managed)
+        for r in out["restaurants"]:
+            for uid in r["manager_user_ids"]:
+                self.assertIn(uid, user_ids)
 
 
 if __name__ == "__main__":
