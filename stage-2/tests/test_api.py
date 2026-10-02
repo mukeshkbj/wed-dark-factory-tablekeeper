@@ -1,6 +1,6 @@
-"""Spec-derived HTTP tests for the Tablekeeper stage-1 service.
+"""Spec-derived HTTP tests for the Tablekeeper stage-2 service.
 
-Run from stage-1/:  python -m unittest discover -s tests -v
+Run from stage-2/:  python -m unittest discover -s tests -v
 (or: python tests/test_api.py)
 
 Spins the real server on an ephemeral port; each test reseeds via
@@ -147,6 +147,20 @@ def book(token, key, table="t_2", local="2030-06-05T19:00", party=4,
     return req("POST", "/reservations", token=token, key=key, body={
         "restaurant_id": rest, "table_id": table,
         "starts_at_local": local, "party_size": party})
+
+
+def book_ids(token, key, table_ids, local="2030-06-05T19:00", party=4,
+             rest="r_anker"):
+    return req("POST", "/reservations", token=token, key=key, body={
+        "restaurant_id": rest, "table_ids": table_ids,
+        "starts_at_local": local, "party_size": party})
+
+
+def combo_fixture():
+    fx = fixture()
+    fx["restaurants"][0]["combinable"] = [
+        ["t_1", "t_2"], ["t_2", "t_3"]]
+    return fx
 
 
 def errcode(body):
@@ -997,6 +1011,300 @@ class Concurrency(unittest.TestCase):
         for t in threads:
             t.join()
         self.assertTrue(all(s < 500 for s in results), results)
+
+
+class Stage2AvailabilityOptions(unittest.TestCase):
+    def setUp(self):
+        reset(combo_fixture())
+        self.tok = token_for()
+
+    def test_options_singles_then_declared_pairs(self):
+        s, b = req("GET", "/restaurants/r_anker")
+        self.assertEqual(s, 200)
+        self.assertEqual(b["combinable"], [["t_1", "t_2"],
+                                           ["t_2", "t_3"]])
+
+        s, b = req("GET", "/availability?restaurant_id=r_anker"
+                          "&date=2030-06-05&party_size=5")
+        self.assertEqual(s, 200)
+        self.assertTrue(b["slots"])
+        for slot in b["slots"]:
+            self.assertIn("available_options", slot)
+        first = b["slots"][0]
+        self.assertEqual(first["available_table_ids"], ["t_3"])
+        self.assertEqual(first["available_options"], [
+            {"table_ids": ["t_3"], "capacity": 6},
+            {"table_ids": ["t_1", "t_2"], "capacity": 6},
+            {"table_ids": ["t_2", "t_3"], "capacity": 10},
+        ])
+
+        s, b = req("GET", "/availability?restaurant_id=r_anker"
+                          "&date=2030-06-05&party_size=11")
+        self.assertEqual(b["slots"][0]["available_options"], [])
+
+    def test_member_booking_removes_single_and_pair_options(self):
+        s, _ = book(self.tok, "s2-member", "t_1", "2030-06-05T19:00", 2)
+        self.assertEqual(s, 201)
+        s, b = req("GET", "/availability?restaurant_id=r_anker"
+                          "&date=2030-06-05&party_size=2")
+        slot = next(sl for sl in b["slots"]
+                    if sl["starts_at_local"] == "2030-06-05T19:00")
+        self.assertEqual(slot["available_table_ids"], ["t_2", "t_3"])
+        self.assertEqual(slot["available_options"], [
+            {"table_ids": ["t_2"], "capacity": 4},
+            {"table_ids": ["t_3"], "capacity": 6},
+            {"table_ids": ["t_2", "t_3"], "capacity": 10},
+        ])
+
+    def test_combo_booking_occupies_every_member(self):
+        s, b = book_ids(self.tok, "s2-combo", ["t_2", "t_1"],
+                        "2030-06-05T19:00", 6)
+        self.assertEqual(s, 201)
+        self.assertEqual(b["table_ids"], ["t_1", "t_2"])
+        self.assertNotIn("table_id", b)
+
+        for tid in ("t_1", "t_2"):
+            s, b = book(self.tok, "s2-member-" + tid, tid,
+                        "2030-06-05T20:00", 2)
+            self.assertEqual(s, 409, tid)
+            self.assertEqual(errcode(b), "table_unavailable")
+
+
+class Stage2ReservationSets(unittest.TestCase):
+    def setUp(self):
+        reset(combo_fixture())
+        self.tok = token_for()
+
+    def test_table_id_and_one_item_table_ids_are_singles(self):
+        s, b = book(self.tok, "single-scalar", "t_2",
+                    "2030-06-05T18:00", 4)
+        self.assertEqual(s, 201)
+        self.assertEqual(b["table_id"], "t_2")
+        self.assertEqual(b["table_ids"], ["t_2"])
+
+        s, b = book_ids(self.tok, "single-list", ["t_3"],
+                        "2030-06-05T18:00", 2)
+        self.assertEqual(s, 201)
+        self.assertEqual(b["table_id"], "t_3")
+        self.assertEqual(b["table_ids"], ["t_3"])
+
+    def test_table_ids_request_errors(self):
+        base = {"restaurant_id": "r_anker",
+                "starts_at_local": "2030-06-05T19:00", "party_size": 2}
+        cases = [
+            (dict(base, table_id="t_1", table_ids=["t_1", "t_2"]),
+             422, "validation_failed"),
+            (dict(base, table_ids=[]), 422, "validation_failed"),
+            (dict(base, table_ids=["t_1", "t_1"]),
+             422, "validation_failed"),
+            (dict(base, table_ids=["t_1", "t_2", "t_3"]),
+             422, "combination_not_allowed"),
+            (dict(base, table_ids=["t_1", "t_3"]),
+             422, "combination_not_allowed"),
+            (dict(base, table_ids=["t_1", "t_zz"]), 404, "not_found"),
+            (dict(base, table_ids=["t_1", "t_ny"]), 404, "not_found"),
+            (dict(base, table_ids=["t_1", "t_2"], party_size=7),
+             422, "party_exceeds_capacity"),
+            (dict(base, table_ids="t_1"), 400, "malformed_request"),
+            (dict(base, table_ids=["t_1", 7]), 400, "malformed_request"),
+        ]
+        for i, (body, status, code) in enumerate(cases):
+            s, b = req("POST", "/reservations", token=self.tok,
+                       key="s2-bad-%d" % i, body=body)
+            self.assertEqual((s, errcode(b)), (status, code), body)
+
+    def test_patch_to_pair_and_cancel_frees_members(self):
+        s, b = book(self.tok, "patch-pair", "t_1",
+                    "2030-06-05T18:00", 2)
+        ref = b["reference"]
+        s, b = req("PATCH", "/reservations/" + ref, token=self.tok,
+                   body={"table_ids": ["t_2", "t_1"]})
+        self.assertEqual(s, 200)
+        self.assertEqual(b["table_ids"], ["t_1", "t_2"])
+        self.assertNotIn("table_id", b)
+
+        for tid in ("t_1", "t_2"):
+            s, b = book(self.tok, "held-" + tid, tid,
+                        "2030-06-05T19:00", 2)
+            self.assertEqual(s, 409, tid)
+
+        s, b = req("POST", "/reservations/%s/cancel" % ref,
+                   token=self.tok, body={})
+        self.assertEqual(s, 200)
+        s, b = book(self.tok, "freed", "t_2", "2030-06-05T19:00", 2)
+        self.assertEqual(s, 201)
+
+    def test_patch_table_set_errors(self):
+        s, b = book_ids(self.tok, "patch-errors", ["t_1", "t_2"],
+                        "2030-06-05T18:00", 4)
+        ref = b["reference"]
+        for body, status, code in [
+                ({"table_id": "t_1", "table_ids": ["t_1", "t_2"]},
+                 422, "validation_failed"),
+                ({"table_ids": ["t_1", "t_3"]},
+                 422, "combination_not_allowed"),
+                ({"table_ids": []}, 422, "validation_failed"),
+                ({"table_ids": ["t_1", "t_1"]},
+                 422, "validation_failed")]:
+            s, b = req("PATCH", "/reservations/" + ref, token=self.tok,
+                       body=body)
+            self.assertEqual((s, errcode(b)), (status, code), body)
+        s, b = req("GET", "/reservations/" + ref, token=self.tok)
+        self.assertEqual(b["table_ids"], ["t_1", "t_2"])
+
+    def test_pair_create_replay_returns_original_body(self):
+        body = {"restaurant_id": "r_anker", "table_ids": ["t_2", "t_1"],
+                "starts_at_local": "2030-06-05T19:00", "party_size": 6}
+        s1, b1 = req("POST", "/reservations", token=self.tok,
+                     key="pair-replay", body=body)
+        self.assertEqual(s1, 201)
+        req("POST", "/reservations/%s/cancel" % b1["reference"],
+            token=self.tok, body={})
+        s2, b2 = req("POST", "/reservations", token=self.tok,
+                     key="pair-replay", body=dict(body))
+        self.assertEqual(s2, 200)
+        self.assertEqual(b2, b1)
+        self.assertEqual(b2["table_ids"], ["t_1", "t_2"])
+        self.assertNotIn("table_id", b2)
+
+
+class Stage2Moves(unittest.TestCase):
+    def setUp(self):
+        reset(combo_fixture())
+        self.tok = token_for()
+        _, a = book(self.tok, "s2-mv-a", "t_3", "2030-06-05T18:00", 2)
+        _, b = book(self.tok, "s2-mv-b", "t_3", "2030-06-05T20:00", 2)
+        self.ra, self.rb = a["reference"], b["reference"]
+
+    def move(self, moves, key="s2-move"):
+        return req("POST", "/reservation-moves", token=self.tok, key=key,
+                   body={"moves": moves})
+
+    def test_move_to_pair(self):
+        s, b = self.move([{"reference": self.ra,
+                           "table_ids": ["t_2", "t_1"]}])
+        self.assertEqual(s, 201)
+        self.assertEqual(b["reservations"][0]["table_ids"],
+                         ["t_1", "t_2"])
+        self.assertNotIn("table_id", b["reservations"][0])
+        s, b = book(self.tok, "after-pair-move", "t_2",
+                    "2030-06-05T19:00", 2)
+        self.assertEqual(s, 409)
+
+    def test_move_member_collision_is_atomic(self):
+        s, b = self.move([
+            {"reference": self.ra, "table_ids": ["t_1", "t_2"]},
+            {"reference": self.rb, "table_id": "t_2",
+             "starts_at_local": "2030-06-05T19:00"},
+        ], key="s2-move-collide")
+        self.assertEqual(s, 409)
+        self.assertEqual(errcode(b), "table_unavailable")
+        s, b = req("GET", "/reservations/" + self.ra, token=self.tok)
+        self.assertEqual(b["table_ids"], ["t_3"])
+        s, b = req("GET", "/reservations/" + self.rb, token=self.tok)
+        self.assertEqual(b["starts_at_local"], "2030-06-05T20:00")
+
+    def test_move_table_set_errors(self):
+        for item, status, code in [
+                ({"reference": self.ra, "table_id": "t_1",
+                  "table_ids": ["t_1", "t_2"]}, 422, "validation_failed"),
+                ({"reference": self.ra, "table_ids": ["t_1", "t_3"]},
+                 422, "combination_not_allowed"),
+                ({"reference": self.ra, "table_ids": []},
+                 422, "validation_failed")]:
+            s, b = self.move([item], key="s2-move-bad-" + code)
+            self.assertEqual((s, errcode(b)), (status, code), item)
+
+
+class Stage2UpgradeAndHardened(unittest.TestCase):
+    def setUp(self):
+        reset()
+        self.tok = token_for()
+
+    def test_stage1_export_shape_imports_and_preserves_retry(self):
+        body = {"restaurant_id": "r_anker", "table_id": "t_2",
+                "starts_at_local": "2030-06-05T19:00", "party_size": 4}
+        s, b = req("POST", "/reservations", token=self.tok,
+                   key="upgrade-key", body=body)
+        self.assertEqual(s, 201)
+        ref = b["reference"]
+        s, exp = req("GET", "/_test/export")
+        self.assertEqual(s, 200)
+
+        # Shape the snapshot like the frozen stage-1 service's export.
+        for res in exp["state"]["reservations"].values():
+            res["table_id"] = res.pop("table_ids")[0]
+        for rest in exp["state"]["restaurants"].values():
+            rest.pop("combinable", None)
+        for bucket in exp["state"]["idempotency"].values():
+            for records in bucket.values():
+                for rec in records:
+                    response = rec["response"]
+                    if "table_ids" in response:
+                        response["table_id"] = response.pop("table_ids")[0]
+
+        reset(fixture(users=[{"id": "u_x", "email": "x@example.com",
+                              "password": "correct horse",
+                              "display_name": "X"}]))
+        self.assertEqual(req("GET", "/reservations", token=self.tok)[0],
+                         401)
+        s, _ = req("POST", "/_test/import", body=exp)
+        self.assertEqual(s, 204)
+
+        s, b = req("GET", "/reservations/" + ref, token=self.tok)
+        self.assertEqual(s, 200)
+        self.assertEqual(b["table_id"], "t_2")
+        self.assertEqual(b["table_ids"], ["t_2"])
+        s, b = req("GET", "/restaurants/r_anker")
+        self.assertEqual(b["combinable"], [])
+        s, b = req("POST", "/reservations", token=self.tok,
+                   key="upgrade-key", body=dict(body))
+        self.assertEqual(s, 200)
+        self.assertEqual(b["reference"], ref)
+
+    def test_stage2_export_import_roundtrips_pair(self):
+        reset(combo_fixture())
+        self.tok = token_for()
+        body = {"restaurant_id": "r_anker", "table_ids": ["t_2", "t_1"],
+                "starts_at_local": "2030-06-05T19:00", "party_size": 6}
+        s, b = req("POST", "/reservations", token=self.tok,
+                   key="pair-export", body=body)
+        self.assertEqual(s, 201)
+        ref = b["reference"]
+        s, exp = req("GET", "/_test/export")
+        self.assertEqual(s, 200)
+
+        reset(fixture())
+        s, _ = req("POST", "/_test/import", body=exp)
+        self.assertEqual(s, 204)
+        s, b = req("GET", "/reservations/" + ref, token=self.tok)
+        self.assertEqual(s, 200)
+        self.assertEqual(b["table_ids"], ["t_1", "t_2"])
+        self.assertNotIn("table_id", b)
+        s, b = req("POST", "/reservations", token=self.tok,
+                   key="pair-export", body=dict(body))
+        self.assertEqual(s, 200)
+        self.assertEqual(b, exp["state"]["idempotency"]["u_ada"]
+                         ["pair-export"][0]["response"])
+        s, b = book(self.tok, "pair-member-after-import", "t_1",
+                    "2030-06-05T19:30", 2)
+        self.assertEqual(s, 409)
+
+    def test_hardened_mode_hides_test_routes(self):
+        old = os.environ.get("TK_HARDENED")
+        os.environ["TK_HARDENED"] = "1"
+        try:
+            self.assertEqual(req("GET", "/_test/export")[0], 404)
+            s, b = req("POST", "/_test/reset", body=fixture())
+            self.assertEqual(s, 404)
+            self.assertEqual(errcode(b), "not_found")
+        finally:
+            if old is None:
+                os.environ.pop("TK_HARDENED", None)
+            else:
+                os.environ["TK_HARDENED"] = old
+        self.assertEqual(req("POST", "/_test/reset", body=fixture())[0],
+                         204)
 
 
 if __name__ == "__main__":

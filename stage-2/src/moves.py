@@ -4,6 +4,9 @@ All-or-nothing: per-booking errors are resolved in input order with the
 cutoff check preceding field errors for each booking; occupancy is a
 batch-level check afterwards. Nothing mutates until every move has
 passed, so failure leaves occupancy, records and retry keys untouched.
+
+Stage 2 accepts ``table_id`` (a singleton set) or ``table_ids`` (one or a
+declared pair) in every move item.
 """
 
 import idempotency
@@ -15,8 +18,6 @@ try:
     import timeutil
 except ImportError:
     import _stub_timeutil as timeutil
-
-_PATCH_FIELDS = ("table_id", "starts_at_local", "party_size")
 
 
 def _validate_shape(body):
@@ -75,30 +76,28 @@ def apply_moves(user, body):
                            "reservation is cancelled")
         reservations._check_cutoff(res)
 
-        tid, local, party = (res["table_id"], res["starts_at_local"],
-                             res["party_size"])
-        if "table_id" in item:
-            if not isinstance(item["table_id"], str):
-                raise ApiError(400, "malformed_request",
-                               "table_id must be a string")
-            tid = item["table_id"]
+        requested_ids = reservations._selector_ids(
+            item, current=reservations.reservation_table_ids(res))
+        local, party = res["starts_at_local"], res["party_size"]
         if "starts_at_local" in item:
             reservations._parse_local_parts(item["starts_at_local"])
             local = item["starts_at_local"]
         if "party_size" in item:
             party = item["party_size"]
 
-        _table, start, end = reservations._validate_booking(
-            rest, tid, local, party, set(), check_occupancy=False)
-        planned.append((res, tid, local, party, start, end))
+        table_ids, start, end = reservations._validate_booking(
+            rest, requested_ids, local, party, set(),
+            check_occupancy=False)
+        planned.append((res, table_ids, local, party, start, end))
 
     # Batch occupancy: resulting intervals must not collide with each
-    # other or with unlisted confirmed bookings on the same tables.
+    # other or with unlisted confirmed bookings on any member table.
     listed = {res["id"] for _item, res in items}
-    for i, (res, tid, local, party, start, end) in enumerate(planned):
+    for i, (_res, table_ids, _local, _party, start, end) in enumerate(planned):
         s, e = start.timestamp(), end.timestamp()
-        for res2, tid2, _l2, _p2, st2, en2 in planned:
-            if res2["id"] == res["id"] or tid2 != tid:
+        members = set(table_ids)
+        for res2, table_ids2, _l2, _p2, st2, en2 in planned[i + 1:]:
+            if not members.intersection(table_ids2):
                 continue
             if timeutil.overlaps(s, e, st2.timestamp(), en2.timestamp()):
                 raise ApiError(409, "table_unavailable",
@@ -106,16 +105,19 @@ def apply_moves(user, body):
         for r in state.STATE["reservations"].values():
             if r["id"] in listed or r["status"] != "confirmed":
                 continue
-            if r["restaurant_id"] != rest_id or r["table_id"] != tid:
+            if r["restaurant_id"] != rest_id:
+                continue
+            if not members.intersection(
+                    reservations.reservation_table_ids(r)):
                 continue
             if timeutil.overlaps(s, e, r["start_epoch"], r["end_epoch"]):
                 raise ApiError(409, "table_unavailable",
                                "table already booked for that interval")
 
     # Commit: nothing above mutated state, so the batch is atomic.
-    for res, tid, local, party, start, end in planned:
+    for res, table_ids, local, party, start, end in planned:
         res.update({
-            "table_id": tid,
+            "table_ids": table_ids,
             "starts_at_local": local,
             "party_size": party,
             "starts_at": timeutil.rfc3339(start),
@@ -123,6 +125,7 @@ def apply_moves(user, body):
             "start_epoch": start.timestamp(),
             "end_epoch": end.timestamp(),
         })
+        res.pop("table_id", None)
     return 201, {"reservations": [reservations._view(res)
                                   for res, _t, _l, _p, _s, _e in planned]}
 

@@ -1,4 +1,4 @@
-"""Tablekeeper stage-1 HTTP service.
+"""Tablekeeper stage-2 HTTP service.
 
 Python 3.12+ stdlib only. ThreadingHTTPServer on 0.0.0.0:$PORT (default 8080).
 All request handling that touches shared state runs under one re-entrant
@@ -29,6 +29,31 @@ import transfer
 
 _JSON_CT = "application/json; charset=utf-8"
 _MAX_BODY = 16 * 1024 * 1024
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT_DIR = os.path.dirname(_SRC_DIR)
+_UI_DIR = os.path.join(_ROOT_DIR, "ui")
+_STATIC_DIR = os.path.join(_UI_DIR, "static")
+_UI_ROUTES = {
+    "/": "index.html",
+    "/signup": "signup.html",
+    "/login": "login.html",
+    "/lookup": "lookup.html",
+}
+_STATIC_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".ico": "image/x-icon",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+}
 
 
 class _TeeReader:
@@ -48,13 +73,60 @@ class _TeeReader:
         return getattr(self.wrapped, name)
 
 
+class _FileResponse:
+    def __init__(self, body, content_type):
+        self.body = body
+        self.content_type = content_type
+
+
 def _json_bytes(obj):
     return json.dumps(obj, ensure_ascii=False).encode("utf-8")
 
 
+def _hardened():
+    return os.environ.get("TK_HARDENED", "").lower() in (
+        "1", "true", "yes", "on")
+
+
+def _content_type(path):
+    return _STATIC_TYPES.get(
+        os.path.splitext(path)[1].lower(), "application/octet-stream")
+
+
+def _file_response(path):
+    try:
+        if not os.path.isfile(path):
+            raise OSError("missing")
+        with open(path, "rb") as fh:
+            body = fh.read()
+    except OSError:
+        raise ApiError(404, "not_found", "no such resource")
+    return 200, _FileResponse(body, _content_type(path))
+
+
+def _static_response(path):
+    rel = unquote(path[len("/static/"):])
+    candidate = os.path.abspath(os.path.join(_STATIC_DIR, rel))
+    root = os.path.abspath(_STATIC_DIR)
+    try:
+        if os.path.commonpath((root, candidate)) != root:
+            raise ApiError(404, "not_found", "no such resource")
+    except ValueError:
+        raise ApiError(404, "not_found", "no such resource")
+    return _file_response(candidate)
+
+
+def _ui_response(path):
+    if path in _UI_ROUTES:
+        return _file_response(os.path.join(_UI_DIR, _UI_ROUTES[path]))
+    if path.startswith("/static/"):
+        return _static_response(path)
+    return None
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "Tablekeeper/1.0"
+    server_version = "Tablekeeper/2.0"
 
     # ---- plumbing ----------------------------------------------------
 
@@ -74,12 +146,17 @@ class Handler(BaseHTTPRequestHandler):
         return self.rfile.read(n) if n else b""
 
     def _send(self, status, obj):
-        if obj is None:
+        if isinstance(obj, _FileResponse):
+            payload = obj.body
+            content_type = obj.content_type
+        elif obj is None:
             payload = b""
+            content_type = _JSON_CT
         else:
             payload = _json_bytes(obj)
+            content_type = _JSON_CT
         self.send_response(status)
-        self.send_header("Content-Type", _JSON_CT)
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         if payload and self.command != "HEAD":
@@ -151,10 +228,18 @@ class Handler(BaseHTTPRequestHandler):
         # want it. Non-object JSON is rejected inside _json_object.
         raw = self._read_body()
 
+        if method == "GET":
+            ui = _ui_response(path)
+            if ui is not None:
+                return ui
+
         with state.LOCK:
             if method == "GET" and path == "/health":
                 return 200, {"status": "ok"}
 
+            if _hardened() and (path == "/_test" or
+                                path.startswith("/_test/")):
+                raise ApiError(404, "not_found", "no such route")
             if method == "POST" and path == "/_test/reset":
                 return transfer.reset(raw)
             if method == "GET" and path == "/_test/export":

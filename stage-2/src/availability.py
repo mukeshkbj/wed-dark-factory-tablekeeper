@@ -3,6 +3,7 @@
 import re
 from datetime import datetime
 
+import reservations
 import state
 from errors import ApiError
 
@@ -37,6 +38,13 @@ def _required_param(query, name):
     return raw
 
 
+def _taken(confirmed, table_id, start, end):
+    return any(
+        table_id in reservations.reservation_table_ids(r)
+        and timeutil.overlaps(start, end, r["start_epoch"], r["end_epoch"])
+        for r in confirmed)
+
+
 def search(query):
     rid = _required_param(query, "restaurant_id")
     date = _required_param(query, "date")
@@ -63,23 +71,36 @@ def search(query):
         r for r in state.STATE["reservations"].values()
         if r["restaurant_id"] == rid and r["status"] == "confirmed"
     ]
+    tables_by_id = {t["id"]: t for t in rest["tables"]}
+    pairs = reservations.combinable_pairs(rest)
+
     slots = []
     for slot in timeutil.slots_for_day(rest, date):
         start = datetime.fromisoformat(slot["starts_at"]).timestamp()
         end = slot["end_instant"].timestamp()
         free = []
+        options = []
         for t in rest["tables"]:
             if t["capacity"] < party_size:
                 continue
-            taken = any(
-                timeutil.overlaps(start, end, r["start_epoch"], r["end_epoch"])
-                for r in confirmed if r["table_id"] == t["id"])
-            if not taken:
-                free.append(t["id"])
+            if _taken(confirmed, t["id"], start, end):
+                continue
+            free.append(t["id"])
+            options.append({"table_ids": [t["id"]],
+                            "capacity": t["capacity"]})
+        for pair in pairs:
+            capacity = sum(tables_by_id[tid]["capacity"] for tid in pair)
+            if capacity < party_size:
+                continue
+            if any(_taken(confirmed, tid, start, end) for tid in pair):
+                continue
+            options.append({"table_ids": list(pair),
+                            "capacity": capacity})
         slots.append({
             "starts_at_local": slot["starts_at_local"],
             "starts_at": slot["starts_at"],
             "available_table_ids": free,
+            "available_options": options,
         })
     return {
         "restaurant_id": rid,
