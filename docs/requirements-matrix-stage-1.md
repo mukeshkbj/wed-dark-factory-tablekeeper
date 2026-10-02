@@ -252,3 +252,13 @@ unique globally; idempotency keys map 1:1 to first-use outcome.
     to the start instant; negative → 422.
   - `slot_minutes`, `reservation_duration_minutes` — keep `>= 1` (a zero grid
     cannot enumerate; zero duration is meaningless).
+- **R-13 (experience flag 4, engineer-side over-validation):** `email` form is
+  the spec literal `local@domain` — non-empty local part, `@`, non-empty
+  domain. **No dot is required in the domain**; `a@b` is valid. `auth.py`
+  must relax `^[^@\s]+@[^@\s]+\.[^@\s]+$` → `^[^@\s]+@[^@\s]+$` (match
+  `fixtures.py`). Whitespace/control chars remain invalid.
+- **R-14 (experience flag 3):** empty-string ids are accepted — spec says
+  "at most 64 characters"; duplicates still rejected. Confirmed compliant.
+- **R-15 (experience flag 1):** `slots_for_day` entry emits a superset
+  (wire `starts_at`/`starts_at_local` strings + aware-datetime views).
+  Accepted as-is; consumers pick the keys they need. No adapt needed.
