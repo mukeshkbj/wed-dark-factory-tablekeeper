@@ -105,14 +105,31 @@ def login(body):
     }
 
 
-def require_user(headers):
+def optional_user(headers):
+    """Return the authenticated user, or None for history/series reads.
+
+    Stage-3 history, decision and series lookup hide existence instead of
+    distinguishing unauthenticated from foreign access, so they need a
+    non-raising token check.
+    """
     header = headers.get("Authorization")
     if header is None:
-        raise ApiError(401, "unauthenticated", "missing bearer token")
+        return None
     parts = header.split(None, 1)
     if len(parts) != 2 or parts[0].lower() != "bearer" or not parts[1]:
-        raise ApiError(401, "unauthenticated", "malformed bearer token")
+        return None
     uid = state.STATE["tokens"].get(parts[1])
-    if uid is None or uid not in state.STATE["users"]:
+    return state.STATE["users"].get(uid)
+
+
+def require_user(headers):
+    user = optional_user(headers)
+    if user is None:
+        header = headers.get("Authorization")
+        if header is None:
+            raise ApiError(401, "unauthenticated", "missing bearer token")
+        parts = header.split(None, 1)
+        if len(parts) != 2 or parts[0].lower() != "bearer" or not parts[1]:
+            raise ApiError(401, "unauthenticated", "malformed bearer token")
         raise ApiError(401, "unauthenticated", "unknown token")
-    return state.STATE["users"][uid]
+    return user

@@ -1,15 +1,18 @@
 """Atomic multi-booking amendment (spec section 11).
 
 All-or-nothing: per-booking errors are resolved in input order with the
-cutoff check preceding field errors for each booking; occupancy is a
-batch-level check afterwards. Nothing mutates until every move has
-passed, so failure leaves occupancy, records and retry keys untouched.
+revision, cutoff and amendment checks used by an individual PATCH;
+occupancy is a batch-level check afterwards. Nothing mutates until every
+move has passed, so failure leaves occupancy, records, histories, series
+state and retry keys untouched.
 
 Stage 2 accepts ``table_id`` (a singleton set) or ``table_ids`` (one or a
-declared pair) in every move item.
+declared pair) in every move item. Stage 3 additionally accepts optional
+``expected_revision`` per item.
 """
 
 import idempotency
+import policies
 import reservations
 import state
 from errors import ApiError
@@ -48,6 +51,19 @@ def _validate_shape(body):
     return mv
 
 
+def _series_member(res):
+    sid = res.get("series_id")
+    if not sid:
+        return None, None
+    ser = state.STATE.get("series", {}).get(sid)
+    if ser is None:
+        return None, None
+    for occurrence in ser["occurrences"]:
+        if occurrence["reservation_id"] == res["id"]:
+            return ser, occurrence
+    return ser, None
+
+
 def apply_moves(user, body):
     mv = _validate_shape(body)
 
@@ -66,68 +82,63 @@ def apply_moves(user, body):
                        "all moves must be in one restaurant")
     rest = state.STATE["restaurants"][rest_id]
 
-    # Per-booking checks in input order: cancelled, cutoff, then the
-    # ordinary amendment field validations (occupancy deferred to the
-    # batch check below).
+    # Per-booking checks in input order use individual PATCH semantics.
+    # Occupancy remains deferred to the batch-level check below.
     planned = []
     for item, res in items:
-        if res["status"] == "cancelled":
-            raise ApiError(409, "reservation_cancelled",
-                           "reservation is cancelled")
-        reservations._check_cutoff(res)
-
-        requested_ids = reservations._selector_ids(
-            item, current=reservations.reservation_table_ids(res))
-        local, party = res["starts_at_local"], res["party_size"]
-        if "starts_at_local" in item:
-            reservations._parse_local_parts(item["starts_at_local"])
-            local = item["starts_at_local"]
-        if "party_size" in item:
-            party = item["party_size"]
-
-        table_ids, start, end = reservations._validate_booking(
-            rest, requested_ids, local, party, set(),
-            check_occupancy=False)
-        planned.append((res, table_ids, local, party, start, end))
+        planned.append(reservations.plan_amendment(
+            res, item, check_occupancy=False))
 
     # Batch occupancy: resulting intervals must not collide with each
     # other or with unlisted confirmed bookings on any member table.
     listed = {res["id"] for _item, res in items}
-    for i, (_res, table_ids, _local, _party, start, end) in enumerate(planned):
-        s, e = start.timestamp(), end.timestamp()
-        members = set(table_ids)
-        for res2, table_ids2, _l2, _p2, st2, en2 in planned[i + 1:]:
-            if not members.intersection(table_ids2):
+    for i, plan in enumerate(planned):
+        start = plan.get("start_epoch")
+        end = plan.get("end_epoch")
+        if start is None:
+            start = plan["start"].timestamp()
+            end = plan["end"].timestamp()
+        members = set(plan["table_ids"])
+        for other in planned[i + 1:]:
+            other_start = other.get("start_epoch")
+            other_end = other.get("end_epoch")
+            if other_start is None:
+                other_start = other["start"].timestamp()
+                other_end = other["end"].timestamp()
+            if not members.intersection(other["table_ids"]):
                 continue
-            if timeutil.overlaps(s, e, st2.timestamp(), en2.timestamp()):
+            if timeutil.overlaps(start, end, other_start, other_end):
                 raise ApiError(409, "table_unavailable",
                                "moves overlap each other")
-        for r in state.STATE["reservations"].values():
-            if r["id"] in listed or r["status"] != "confirmed":
+        for res2 in state.STATE["reservations"].values():
+            if res2["id"] in listed or res2["status"] != "confirmed":
                 continue
-            if r["restaurant_id"] != rest_id:
+            if res2["restaurant_id"] != rest_id:
                 continue
             if not members.intersection(
-                    reservations.reservation_table_ids(r)):
+                    reservations.reservation_table_ids(res2)):
                 continue
-            if timeutil.overlaps(s, e, r["start_epoch"], r["end_epoch"]):
+            if timeutil.overlaps(start, end, res2["start_epoch"],
+                                 res2["end_epoch"]):
                 raise ApiError(409, "table_unavailable",
                                "table already booked for that interval")
 
     # Commit: nothing above mutated state, so the batch is atomic.
-    for res, table_ids, local, party, start, end in planned:
-        res.update({
-            "table_ids": table_ids,
-            "starts_at_local": local,
-            "party_size": party,
-            "starts_at": timeutil.rfc3339(start),
-            "ends_at": timeutil.rfc3339(end),
-            "start_epoch": start.timestamp(),
-            "end_epoch": end.timestamp(),
-        })
-        res.pop("table_id", None)
-    return 201, {"reservations": [reservations._view(res)
-                                  for res, _t, _l, _p, _s, _e in planned]}
+    changed = [plan for plan in planned if plan["changed"]]
+    affected_series = set()
+    for plan in changed:
+        reservations._apply_amendment(plan)
+        ser, occurrence = _series_member(plan["reservation"])
+        if ser is not None:
+            if occurrence is not None:
+                occurrence["exception"] = True
+            affected_series.add(ser["id"])
+    for sid in affected_series:
+        state.STATE["series"][sid]["revision"] += 1
+    if changed:
+        policies.bump_restaurant_revision(rest["id"])
+    return 201, {"reservations": [reservations._view(plan["reservation"])
+                                  for plan in planned]}
 
 
 def apply_idempotent(user, method, path, key, body):

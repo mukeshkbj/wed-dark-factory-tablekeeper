@@ -24,7 +24,9 @@ except ImportError:  # experience-owned module may not have landed yet
 import auth
 import availability
 import moves
+import policies
 import reservations
+import series
 import transfer
 
 _JSON_CT = "application/json; charset=utf-8"
@@ -126,7 +128,7 @@ def _ui_response(path):
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "Tablekeeper/2.0"
+    server_version = "Tablekeeper/3.0"
 
     # ---- plumbing ----------------------------------------------------
 
@@ -221,8 +223,10 @@ class Handler(BaseHTTPRequestHandler):
         split = urlsplit(self.path)
         path = split.path
         method = "GET" if self.command == "HEAD" else self.command
-        query = parse_qs(split.query, keep_blank_values=True)
-        query = {k: v[0] for k, v in query.items()}
+        raw_query = parse_qs(split.query, keep_blank_values=True)
+        query = {k: v[0] for k, v in raw_query.items()}
+        if "explain" in raw_query and len(raw_query["explain"]) != 1:
+            query["explain"] = raw_query["explain"]
 
         # Body read happens before the lock; only parsed for handlers that
         # want it. Non-object JSON is rejected inside _json_object.
@@ -254,6 +258,17 @@ class Handler(BaseHTTPRequestHandler):
 
             if method == "GET" and path == "/restaurants":
                 return 200, availability.list_restaurants()
+            m = re.fullmatch(r"/restaurants/([^/]+)/policies", path)
+            if m:
+                rid = unquote(m.group(1))
+                if method == "GET":
+                    return policies.list_response(rid)
+                if method == "POST":
+                    body = self._json_object(raw)
+                    user = auth.require_user(self.headers)
+                    key = self._idem_key()
+                    return policies.publish_idempotent(
+                        user, method, path, key, rid, body)
             m = re.fullmatch(r"/restaurants/([^/]+)", path)
             if method == "GET" and m:
                 return 200, availability.get_restaurant(unquote(m.group(1)))
@@ -272,6 +287,14 @@ class Handler(BaseHTTPRequestHandler):
                 user = auth.require_user(self.headers)
                 return reservations.list_mine(user)
 
+            m = re.fullmatch(r"/reservations/([^/]+)/(history|decision)", path)
+            if m and method == "GET":
+                ref = unquote(m.group(1))
+                user = auth.optional_user(self.headers)
+                if m.group(2) == "history":
+                    return reservations.history(user, ref)
+                return reservations.decision(user, ref)
+
             m = re.fullmatch(r"/reservations/([^/]+)/cancel", path)
             if m and method == "POST":
                 user = auth.require_user(self.headers)
@@ -287,6 +310,18 @@ class Handler(BaseHTTPRequestHandler):
                     body = self._json_object(raw)
                     user = auth.require_user(self.headers)
                     return reservations.patch(user, ref, body)
+
+            if path == "/series" and method == "POST":
+                body = self._json_object(raw)
+                user = auth.require_user(self.headers)
+                key = self._idem_key()
+                return series.adopt_idempotent(
+                    user, method, path, key, body)
+
+            m = re.fullmatch(r"/series/([^/]+)", path)
+            if m and method == "GET":
+                return series.get(
+                    auth.optional_user(self.headers), unquote(m.group(1)))
 
             if path == "/reservation-moves" and method == "POST":
                 body = self._json_object(raw)

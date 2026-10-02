@@ -20,8 +20,11 @@ STATE = {
     "restaurant_order": [], # fixture order
     "reservations": {},     # reservation_id -> record (see reservations.py)
     "reference_index": {},  # reference -> reservation_id
+    "policies": {},         # restaurant_id -> [published policy]
+    "series": {},           # series_id -> recurring agreement record
+    "restaurant_revisions": {},  # restaurant_id -> internal write count
     "idempotency": {},      # user_id -> key -> {"scope": {m p: {body,status,response}}}
-    "counters": {"user": 0, "reservation": 0},
+    "counters": {"user": 0, "reservation": 0, "series": 0},
 }
 
 
@@ -40,8 +43,11 @@ def _fresh():
         "restaurant_order": [],
         "reservations": {},
         "reference_index": {},
+        "policies": {},
+        "series": {},
+        "restaurant_revisions": {},
         "idempotency": {},
-        "counters": {"user": 0, "reservation": 0},
+        "counters": {"user": 0, "reservation": 0, "series": 0},
     }
 
 

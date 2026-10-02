@@ -16,8 +16,8 @@ from errors import ApiError
 
 
 def execute(user_id, method, path, key, body, fn):
-    bucket = state.STATE["idempotency"].setdefault(user_id, {})
-    records = bucket.setdefault(key, [])
+    bucket = state.STATE["idempotency"].get(user_id, {})
+    records = bucket.get(key, [])
     for rec in records:
         if rec["method"] == method and rec["path"] == path:
             if rec["body"] == body:
@@ -26,8 +26,9 @@ def execute(user_id, method, path, key, body, fn):
                            "key already used with a different body")
     status, response = fn()
     if status < 400:
-        records.append({
-            "method": method, "path": path,
-            "body": body, "response": response,
-        })
+        state.STATE["idempotency"].setdefault(user_id, {}).setdefault(
+            key, []).append({
+                "method": method, "path": path,
+                "body": body, "response": response,
+            })
     return status, response
