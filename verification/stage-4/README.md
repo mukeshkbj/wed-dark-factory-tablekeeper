@@ -78,6 +78,19 @@ D:/tk-official/.venv/Scripts/python.exe \
 `X-<leg>-<n>` (`s1|s2|s3|s4` legs). Failures print as `FAIL <cid> - detail`;
 summary line counts checks, fails, and 5xx/connection errors separately.
 
+## Phase-2 gate results @ `62a9439` (product tree = candidate `579f39c`)
+
+| Stream | Result |
+|---|---|
+| Full combined run (inherited + s4) | 862/862 PASS, 0 5xx, 2337.5s |
+| `upgrade_checks.py` (s1+s2+s3+s4) | 62/62 PASS, 140.1s |
+| `--hardened` (`TK_HARDENED=1`) | 5/5 PASS, 10.2s |
+| `ui_checks.py` (inherited s2 browser contract) | 82/82 PASS, 65.1s |
+| Official `--stage 4` host | completed: s1 120/120, s2 25/25, s3 7/7, s4 6/6 |
+| Official `--stage 4 --mode isolated` | completed: s1 120/120, s2 25/25, s3 7/7, s4 6/6 |
+
+Evidence: `evidence/harness/s4-phase2-host`, `s4-phase2-isolated`.
+
 ## Phase-1 smoke results @ `579f39c` (stage-4 impl)
 
 | Stream | Result |
