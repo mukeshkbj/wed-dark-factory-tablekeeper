@@ -30,6 +30,23 @@ Engineer-owned stage-4 implementation:
 
 ---
 
+# tk-experience — stage-4 session record
+
+- Seat: `mukeshkbj/tk-experience` (experience implementer — fixture/demo
+  continuity slice; no new fixture fields or screens in stage 4)
+- Harness: Devin CLI over ACP (embedded in `jam`)
+- Mandate requested model: `swe`
+- Resolved model id reported by this session: **SWE-2 High** (`swe-2-high`)
+- Room: `9bf93138-25b0-431d-aa62-4a3dbca30155` · Date: 2026-10-02
+- Base: scaffold `c4c09af` + engineer feature commit `3e3250a`
+
+Owned deliverables: `tests/test_stage4_ui.py` (applied-replan browser
+smoke). `src/fixtures.py`, `tests/test_fixtures.py`, and `ui/` verified
+unchanged — no stage-4 coherence issue found; demo seed retains
+`u_ines` manager coverage for replan demonstration.
+
+---
+
 # Stage-3 build session record — tk-engineer
 
 - Seat: `mukeshkbj/tk-engineer` (domain/API implementer)
