@@ -11,7 +11,10 @@ module first and fall back to `_stub_fixtures` only on ImportError):
         copy. Every failure raises FixtureError(422,
         "validation_failed") — coordinator rulings R-1/R-3/G-5: the
         reset body is caller input and fixture content errors are 422,
-        never 5xx, and state stays unchanged.
+        never 5xx, and state stays unchanged. R-12 validation floor:
+        table `label` is optional (string when present), `capacity`
+        and `cancellation_cutoff_minutes` are integers >= 0; R-15:
+        empty-string ids are acceptable.
 
     demo_seed() -> dict
         An attractive, fully synthetic demo fixture that passes
@@ -109,10 +112,14 @@ def _validate_restaurants(restaurants):
             ZoneInfo(tz)
         except Exception:
             _fail("restaurant.timezone %r is not an IANA zone" % tz)
-        for key in ("slot_minutes", "reservation_duration_minutes",
-                    "cancellation_cutoff_minutes"):
+        for key in ("slot_minutes", "reservation_duration_minutes"):
             if not _is_int(r.get(key)) or r[key] < 1:
                 _fail("restaurant.%s must be a positive integer" % key)
+        # R-12 floor: cancellation_cutoff_minutes is an integer >= 0
+        if not _is_int(r.get("cancellation_cutoff_minutes")) \
+                or r["cancellation_cutoff_minutes"] < 0:
+            _fail("restaurant.cancellation_cutoff_minutes must be an "
+                  "integer >= 0")
         oh = r.get("opening_hours")
         if not isinstance(oh, list):
             _fail("restaurant.opening_hours must be an array")
@@ -136,10 +143,11 @@ def _validate_restaurants(restaurants):
             if tid in tids:
                 _fail("duplicate table id %r" % tid)
             tids.add(tid)
-            if not isinstance(t.get("label"), str):
+            # R-12 floor: label optional (string when present), capacity >= 0
+            if "label" in t and not isinstance(t["label"], str):
                 _fail("table.label must be a string")
-            if not _is_int(t.get("capacity")) or t["capacity"] < 1:
-                _fail("table.capacity must be an integer >= 1")
+            if not _is_int(t.get("capacity")) or t["capacity"] < 0:
+                _fail("table.capacity must be an integer >= 0")
         table_ids[rid] = tids
     return ids, table_ids
 

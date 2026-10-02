@@ -115,8 +115,7 @@ class Rejections(unittest.TestCase):
             restaurants=[_restaurant(timezone="Mars/Olympus")]))
         self.assertFails(_fixture(
             restaurants=[_restaurant(timezone=12)]))
-        for key in ("slot_minutes", "reservation_duration_minutes",
-                    "cancellation_cutoff_minutes"):
+        for key in ("slot_minutes", "reservation_duration_minutes"):
             self.assertFails(_fixture(restaurants=[_restaurant(**{key: 0})]))
             self.assertFails(_fixture(
                 restaurants=[_restaurant(**{key: True})]))
@@ -124,6 +123,13 @@ class Rejections(unittest.TestCase):
                 restaurants=[_restaurant(**{key: "30"})]))
         self.assertFails(_fixture(
             restaurants=[_restaurant(slot_minutes=-5)]))
+        # R-12: cutoff floor is >= 0 — zero is valid, negatives and
+        # wrong types still fail
+        for bad_cutoff in (-1, True, "120"):
+            self.assertFails(_fixture(restaurants=[
+                _restaurant(cancellation_cutoff_minutes=bad_cutoff)]))
+        fixtures.validate_fixture(_fixture(restaurants=[
+            _restaurant(cancellation_cutoff_minutes=0)]))
 
     def test_opening_hours(self):
         oh = [{"weekday": "noday", "opens": "18:00", "closes": "23:00"}]
@@ -140,15 +146,24 @@ class Rejections(unittest.TestCase):
             restaurants=[_restaurant(opening_hours="thu 18-23")]))
 
     def test_table_fields(self):
+        # R-12 floor: capacity >= 0 and label optional — but negatives,
+        # non-ints and non-string labels still fail
         self.assertFails(_fixture(restaurants=[_restaurant(
-            tables=[{"id": "t_1", "label": "1", "capacity": 0}])]))
+            tables=[{"id": "t_1", "label": "1", "capacity": -1}])]))
         self.assertFails(_fixture(restaurants=[_restaurant(
             tables=[{"id": "t_1", "label": "1", "capacity": "4"}])]))
         self.assertFails(_fixture(restaurants=[_restaurant(
             tables=[{"id": "t_1", "label": "1", "capacity": True}])]))
         self.assertFails(_fixture(restaurants=[_restaurant(
-            tables=[{"id": "t_1", "capacity": 4}])]))  # no label
+            tables=[{"id": "t_1", "label": 7, "capacity": 4}])]))
         self.assertFails(_fixture(restaurants=[_restaurant(tables={})]))
+
+    def test_table_r12_floor_accepts(self):
+        out = fixtures.validate_fixture(_fixture(restaurants=[_restaurant(
+            tables=[{"id": "t_1", "capacity": 0}])]))
+        table = out["restaurants"][0]["tables"][0]
+        self.assertEqual(table["capacity"], 0)
+        self.assertNotIn("label", table)
 
     def test_reservation_fields(self):
         base = {"id": "res_1", "reference": "K3P7QW", "user_id": "u_1",
