@@ -151,7 +151,8 @@ the same gate:
 2. **Stage 2** — ✅ FROZEN @ `ee28d6b` (`stage-2/` product revision
    `5be5343`; verifier ACCEPTED + coordinator official 120/120 stage-1 and
    25/25 stage-2 isolated). Evidence: `docs/gates/stage-2-freeze.md`.
-3. **Stage 3** — policies/accepted-terms/history/series; manager screens.
+3. **Stage 3** — ACTIVE (this room): policies/accepted-terms/history/series;
+   no new screens required. Plan below in §12b.
 4. **Stage 4** — series amend + bounded deterministic replans; closure
    preview-and-apply manager screen; DEMO-RUNBOOK.
 5. **Final** — `--all --mode isolated`, clean-clone check, offline
@@ -187,6 +188,36 @@ browser UI on 4 routes, stage-1→stage-2 export upgrade.
 
 Gate: verifier CONFIRMED **and** coordinator-run official harness
 `--stage 2 --mode isolated` pass → `docs/gates/stage-2-freeze.md` → stage 3.
+
+### 12b. Stage-3 run plan (active)
+
+Source spec: `D:\tk-official\tablekeeper\spec\stage-3.md` (inherits stages 1
+and 2). Clause matrix: `docs/requirements-matrix-stage-3.md` (rulings
+R3-1..R3-20). Contract deltas vs stage-2: `explain=true` availability
+explanations, dated immutable policies and `manager_user_ids`, reservation
+`revision`/`accepted_terms`, owner-only history and decision endpoints,
+recurring `POST /series` + `GET /series/{id}`, stage-1/stage-2 export upgrade,
+and policy-aware collective moves with series exception flags. The stage-3
+spec explicitly requires no new screens; the inherited stage-2 UI remains the
+browser surface.
+
+1. **tk-engineer** — copy `stage-2/` → `stage-3/` verbatim (no pycache), then
+   extend the API/domain: policy storage/selection/publication, explain output,
+   reservation revisions/terms/history/decision, expected_revision, series,
+   upgrade import, policy-aware moves, restaurant/series revision counters,
+   Dockerfile/RUN.md.
+2. **tk-experience** — `fixtures.py` `manager_user_ids` validation/default and
+   demo seed manager coverage; stage-3 session/tests. No new screens are
+   required; inherited UI must remain compatible.
+3. **tk-verifier** — `verification/stage-3/` spec-derived matrix/checks
+   (API, policy selection, history/terms, series, upgrade, concurrency,
+   collective moves), then official harness `--stage 3` host + isolated and a
+   CONFIRMED/HELD verdict. Never repairs product code.
+4. **tk-coordinator** — matrix + plan (done), board, rulings, gate run,
+   freeze `stage-3/` at accepted revision.
+
+Gate: verifier CONFIRMED **and** coordinator-run official harness
+`--stage 3 --mode isolated` pass → `docs/gates/stage-3-freeze.md` → stage 4.
 
 Architecture the service grows into:
 
