@@ -262,8 +262,13 @@ class Auth(unittest.TestCase):
         self.assertEqual(s, 422)
         self.assertEqual(errcode(b), "validation_failed")
 
+    def test_signup_dotless_domain_201(self):
+        for good in ("a@b", "x@localhost"):
+            s, b = signup(email=good)
+            self.assertEqual(s, 201, good)
+
     def test_signup_bad_email_422(self):
-        for bad in ("a@", "@b.com", "a@b", "no-at", "a b@c.com", "a@@b.com"):
+        for bad in ("x", "a@", "@b", "a b@c", "no-at", "a@@b.com"):
             s, b = signup(email=bad)
             self.assertEqual(s, 422, bad)
             self.assertEqual(errcode(b), "validation_failed")
