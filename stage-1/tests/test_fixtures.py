@@ -9,11 +9,13 @@ Run from anywhere:
 import os
 import sys
 import unittest
+from datetime import timedelta
 
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 
 import fixtures  # noqa: E402
+import timeutil  # noqa: E402
 
 
 def _user(**over):
@@ -193,6 +195,45 @@ class Rejections(unittest.TestCase):
         self.assertFails(f)
         f = _fixture(reservations=[base, dict(base, reference="OTHER99")])
         self.assertFails(f)
+
+
+class DemoSeedCoherence(unittest.TestCase):
+    """R-16: the shipped demo seed must seed coherent data — every
+    seeded booking resolvable in the restaurant's zone, on the slot
+    grid, within opening hours, capacity-sufficient and free of
+    overlaps with other confirmed seeds on the same table."""
+
+    def test_demo_seed_reservations_are_coherent(self):
+        f = fixtures.demo_seed()
+        rests = {r["id"]: r for r in f["restaurants"]}
+        user_ids = {u["id"] for u in f["users"]}
+        tables = {t["id"]: (r["id"], t) for r in f["restaurants"]
+                  for t in r["tables"]}
+        occupancy = {}
+        for res in f["reservations"]:
+            with self.subTest(reservation=res["id"]):
+                rest = rests[res["restaurant_id"]]
+                self.assertIn(res["user_id"], user_ids)
+                owner_rid, table = tables[res["table_id"]]
+                self.assertEqual(owner_rid, res["restaurant_id"])
+                local = res["starts_at_local"]
+                start = timeutil.resolve_local(rest["timezone"], local)
+                end = timeutil.add_absolute(
+                    start,
+                    timedelta(
+                        minutes=rest["reservation_duration_minutes"]))
+                grid = {s["starts_at_local"] for s in
+                        timeutil.slots_for_day(rest, local[:10])}
+                self.assertIn(local, grid)
+                self.assertGreaterEqual(table["capacity"],
+                                        res["party_size"])
+                for o_start, o_end in occupancy.get(res["table_id"], []):
+                    self.assertFalse(
+                        timeutil.overlaps(start.timestamp(),
+                                          end.timestamp(),
+                                          o_start, o_end))
+                occupancy.setdefault(res["table_id"], []).append(
+                    (start.timestamp(), end.timestamp()))
 
 
 if __name__ == "__main__":
