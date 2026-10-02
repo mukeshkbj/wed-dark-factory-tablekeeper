@@ -141,22 +141,50 @@ to read its mandate file first; the file is both instruction and artifact.
 ## 12. Scored-run plan (active room plan)
 
 Room `a80cdbce-db3b-4f69-a49f-d0b48119d581`, dispatched 2026-10-01 by
-`dispatch.md`. Sequential stages, each through the same gate:
+`dispatch.md` (hit the 10k message cap 2026-10-02; superseded by attempt-2
+room `9bf93138-25b0-431d-aa62-4a3dbca30155`). Sequential stages, each through
+the same gate:
 
-1. **Stage 1** — engineer builds the JSON API service (stdlib Python 3.12+,
-   no runtime deps, single-writer-lock state, `hashlib.scrypt` passwords,
-   `zoneinfo` tz); experience builds `timeutil.py` (DST rules, slot grid)
-   and `fixtures.py` (fixture parse/validate + demo seed); verifier derives
-   its own matrix + checks from the spec, then runs the official harness
-   (`--stage 1`, then `--mode isolated`). Coordinator holds the gate.
-2. **Stage 2** — copy accepted `stage-1/` to `stage-2/`; engineer extends the
-   API (combined tables, upgrade-import); experience builds the browser UI
-   per the testid contract.
+1. **Stage 1** — ✅ FROZEN @ `aae0226` (`stage-1/` @ `14c9e43`; verifier
+   CONFIRMED @`28b16f4` + test-only delta; official 120/120 isolated).
+   Evidence: `docs/gates/stage-1-freeze.md`.
+2. **Stage 2** — ACTIVE (this room). Plan below in §12a.
 3. **Stage 3** — policies/accepted-terms/history/series; manager screens.
 4. **Stage 4** — series amend + bounded deterministic replans; closure
    preview-and-apply manager screen; DEMO-RUNBOOK.
 5. **Final** — `--all --mode isolated`, clean-clone check, offline
    `harness check`, FACTORY.md fill, final report.
+
+### 12a. Stage-2 run plan (active)
+
+Source spec: `D:\tk-official\tablekeeper\spec\stage-2.md` (inherits all of
+stage-1). Clause matrix: `docs/requirements-matrix-stage-2.md` (rulings
+R2-1..R2-15). Contract deltas vs stage-1: `combinable` fixture field,
+`available_options` in slots, `table_ids` on create/patch/moves/responses,
+browser UI on 4 routes, stage-1→stage-2 export upgrade.
+
+1. **tk-engineer** — copy `stage-1/` → `stage-2/` verbatim (no pycache);
+   extend API: `table_ids` storage canonicalised in `combinable` order,
+   `available_options`, combination error table (`combination_not_allowed`,
+   per-member `table_unavailable`, summed `party_exceeds_capacity`), PATCH +
+   moves with sets, transfer.py accepting stage-1-shaped export state
+   (`table_id` → `table_ids` normalise), static-UI route plumbing
+   (`/`, `/signup`, `/login`, `/lookup` + assets from `stage-2/ui/`),
+   hardened `/_test` disable mode, Dockerfile/RUN.md updated.
+2. **tk-experience** — `fixtures.py` `combinable` validation + demo seed
+   with a declared pair; the entire browser surface `stage-2/ui/` (routes,
+   testids U4–U8, combo cells C5, search-generation guard, booking lifecycle
+   with minted-on-open idempotency key, `booking-uncertain` retry, 375px +
+   desktop, warm hospitality direction — no external assets).
+3. **tk-verifier** — own spec-derived stage-2 matrix + checks
+   (`verification/stage-2/`), incl. Playwright UI probes beyond the shipped
+   samples; then official harness `--stage 2` and `--mode isolated`;
+   verdict CONFIRMED/HELD. Never repairs product code.
+4. **tk-coordinator** — matrix + plan (done), board, rulings, gate run,
+   freeze `stage-2/` at accepted revision.
+
+Gate: verifier CONFIRMED **and** coordinator-run official harness
+`--stage 2 --mode isolated` pass → `docs/gates/stage-2-freeze.md` → stage 3.
 
 Architecture the service grows into:
 

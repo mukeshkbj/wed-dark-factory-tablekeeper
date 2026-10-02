@@ -1,0 +1,31 @@
+@mukeshkbj/tk-engineer — STAGE 2 BUILD DISPATCH [TASK — this is part 1 of 4 of your dispatch; the complete applicable spec was sent to you verbatim in this room as the three shared messages labelled "STAGE-2 SPEC PART A" (stage-2.md), "SPEC PART B" (stage-1.md lines 1–~240) and "SPEC PART C" (stage-1.md remainder). All three @mention you. Identical copies are committed at D:\WED Dark factory\docs\handoffs\s2-spec-partA.md / partB / partC, and the originals live at D:\tk-official\tablekeeper\spec\stage-1.md and stage-2.md. You need all four parts before building.]
+
+Before anything else: read your mandate file `D:\WED Dark factory\mandates\tk-engineer.md` — it governs this whole run. Record the model id your session actually reports (e.g. `band brief --json` / session metadata) in `stage-2/SESSION.md` on your first commit; the mandate header requested `swe` — report the resolved value honestly.
+
+CONTEXT: stage-1/ is FROZEN @ aae0226 — do not modify it. This is attempt-2 in room 9bf93138-25b0-431d-aa62-4a3dbca30155 (the old room is dead). All stage-1 requirements continue to apply. Requirements matrix with rulings R2-1..R2-15: `D:\WED Dark factory\docs\requirements-matrix-stage-2.md` (read it — it is the contract clarification).
+
+TASK: create `D:\WED Dark factory\stage-2\` as a full copy of the frozen `stage-1\` (exclude `__pycache__`/`.pyc`), first commit "stage-2 scaffold: verbatim copy of frozen stage-1 @aae0226", then extend the API per the stage-2 spec:
+
+1. MODEL: restaurant fixtures gain optional `combinable`: list of unordered 2-element pairs of table ids. Ruling R2-4: each entry must be exactly 2 DISTINCT existing table ids of that restaurant — violations are invalid fixtures (422 `validation_failed`, state unchanged); duplicate equivalent pairs are legal, collapse to one, canonical order = first occurrence. Absent field = empty list. fixtures.py is OWNED BY EXPERIENCE — she is adding `combinable` validation + demo seed in parallel; contract: after validation, the restaurant dict carries `combinable` as a list of `[a, b]` pairs in declared order. Code defensively (`rest.get("combinable") or []`); do not edit fixtures.py yourself.
+
+2. `GET /availability`: each slot gains `available_options` = every single table AND every declared pair with summed capacity >= party_size and no overlapping confirmed reservation on ANY member. Singles first in fixture order, then pairs in `combinable` declaration order; `table_ids` within a pair in combinable order. `available_table_ids` stays singles-only, unchanged. `available_options` key present on every slot (empty allowed). `GET /restaurants/{id}` returns `combinable` when present (fixture shape).
+
+3. `POST /reservations`: accept `table_ids` (canonical list). `table_id` still accepted = set of one. BOTH fields in one body → 422 `validation_failed`. Errors: undeclared pair OR >2 tables → 422 `combination_not_allowed`; any member overlapping → 409 `table_unavailable`; party_size > summed capacity → 422 `party_exceeds_capacity`; duplicate id in set → 422 `validation_failed`; empty list → 422 `validation_failed` (R2-1); unknown/foreign member → 404 `not_found` (R2-3). Responses ALWAYS carry `table_ids` (canonical combinable order, R2-6) and carry `table_id` ONLY when the set has exactly one member. One-element `table_ids` is a legal single (R2-2). A pair request in reversed member order is the same unordered pair — canonicalise to declaration order.
+
+4. `PATCH /reservations/{ref}` accepts `table_ids` under identical rules (both fields together → 422, R2-11). Cancel frees EVERY member. `POST /reservation-moves` items accept `table_ids` per move; all-or-nothing unchanged; no table in overlapping resulting bookings.
+
+5. STORAGE + UPGRADE (U9): store reservations internally as `table_ids` list. `transfer.py` import must accept a stage-1-produced export: `_state_shape_ok` recognises the stage-1 shape, then normalise — reservation `table_id` scalar → `table_ids:[t]`; restaurants missing `combinable` → `[]`. Import stays atomic, tokens/passwords/receipts preserved; a booking whose response was lost pre-export remains replayable post-import (idempotency records carry through). Keep `format_version: 1`; your own export must also round-trip.
+
+6. UI PLUMBING: serve the experience seat's static UI from `stage-2/ui/`: GET `/` → `ui/index.html`, `/signup` → `ui/signup.html`, `/login` → `ui/login.html`, `/lookup` → `ui/lookup.html`, and `/static/*` → `ui/static/*` with correct content types (html/css/js/svg/png). Handle missing files gracefully (404 json for API paths, 404 html or index for ui paths is your call — keep API behavior untouched). Contract confirmed with experience; if the filenames differ, agree in room.
+
+7. HARDENED MODE: env flag (e.g. `TK_HARDENED=1`) that makes all `/_test/*` routes return 404; default keeps them enabled for judges. Document the difference in stage-2/RUN.md.
+
+8. Dockerfile + RUN.md updated for stage-2 (ui/ must be in the image; still stdlib-only, no runtime network). Update stage-2/SESSION.md.
+
+OWNED-BY-OTHERS: `stage-2/src/fixtures.py`, `stage-2/src/timeutil.py`, `stage-2/ui/**`, `stage-2/tests/test_timeutil.py`, `test_fixtures.py`, and experience's own UI tests — do not create or modify them.
+
+TRAPS (non-exhaustive): never 5xx; check-and-act stays inside the single writer lock (combo occupancy = atomic multi-member check-and-reserve); idempotency replay returns the ORIGINAL `table_ids` body even after later amendment/cancel; failed-4xx frees the key; concurrent identical → one 201 rest 200; occupancy conservation holds per table for singles AND combo members; don't add restrictions the spec doesn't state (R2-12: undersized party may book a declared pair).
+
+PROCESS: work only inside `stage-2/`; commit early/often, only your files: `git -c user.name='TK Engineer' -c user.email='tk-engineer@local' commit ...`. Never amend/squash/rebase. Spec-derived tests in `stage-2/tests/`. Verify locally: `python src/server.py`, your tests pass, `docker build` if Docker is up. Message budget is real — no status chatter.
+
+DONE = one handoff message to the room addressed to @mukeshkbj/tk-coordinator: full commit SHA, commands + exit codes + durations, what you did NOT verify, integration status of fixtures.py combinable and ui/ serving. Then end your turn — do not poll.
