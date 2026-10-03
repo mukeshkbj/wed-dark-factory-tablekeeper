@@ -26,11 +26,38 @@ This stack gets both properties without changing the product:
 
 - A host and domain you are **authorized** to deploy to. This recipe does not
   pick a host for you.
-- Docker with the compose plugin on that host.
+- A host that runs a **persistent Docker container** — a VPS, Render,
+  Railway, Fly.io, Cloud Run, or similar. Serverless/edge platforms
+  (Vercel, Netlify, Cloudflare Workers) do **not** fit: the service keeps
+  its store in one process's memory, which ephemeral function instances
+  cannot preserve, and adapting it would mean reopening the frozen product.
+- Docker with the compose plugin for the compose variant below; the
+  all-in-one image needs only a container runtime.
 - TLS termination in front of the proxy (host reverse proxy, Caddy, load
-  balancer). The stack itself serves plain HTTP on its published port.
+  balancer, or the platform's built-in TLS). The stack itself serves plain
+  HTTP on its published port.
 
-## Launch
+## Two deployment shapes
+
+**A. Compose stack** (`docker-compose.yml`) — for hosts with Docker Compose
+(a VPS, a home server). Three services: internal app, one-shot seed,
+public nginx proxy.
+
+**B. All-in-one image** (`single/Dockerfile`) — for single-container hosts
+(Render, Railway, Fly.io, Cloud Run, a droplet). One image carries app +
+nginx + seed; only the nginx port is public.
+
+```sh
+# from the repository root
+docker build -f submission/deploy/single/Dockerfile -t tablekeeper-demo .
+docker run -d -p <public-port>:80 tablekeeper-demo      # or -e PORT=xxxx
+```
+
+Inside the container the app listens on `127.0.0.1:18080` (never publish
+it); nginx listens on `$PORT` or 80 and blocks `/_test*`. Platforms that
+inject a port (e.g. Cloud Run) work automatically.
+
+## Launch (compose variant)
 
 ```sh
 cd submission/deploy

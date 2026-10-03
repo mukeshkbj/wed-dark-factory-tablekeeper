@@ -38,6 +38,11 @@ publishes only an nginx proxy that returns 404 for every `/_test*` path.
 Verify as an unauthenticated judge (checklist in `submission/deploy/README.md`)
 before claiming a URL.
 
+Two shapes: compose (`docker-compose.yml`, validated on loopback) and an
+all-in-one image (`single/Dockerfile`, also validated) for
+single-container hosts. Requires a persistent container runtime — Vercel
+and other serverless/edge platforms cannot host the stateful service.
+
 ## Blockers (operator-only)
 
 1. `room.json` — export the real BAND room (`9bf93138-…`) via room menu →
