@@ -221,7 +221,7 @@ browser surface.
 Gate: verifier CONFIRMED **and** coordinator-run official harness
 `--stage 3 --mode isolated` pass → `docs/gates/stage-3-freeze.md` → stage 4.
 
-### 12c. Stage-4 run plan (active)
+### 12c. Stage-4 run plan (accepted; frozen)
 
 Source spec: `D:\tk-official\tablekeeper\spec\stage-4.md` (inherits stages 1–3).
 Clause matrix: `docs/requirements-matrix-stage-4.md` (rulings R4-1..R4-24).
@@ -244,9 +244,10 @@ inherited stage-2 UI remains the browser surface.
 4. **tk-coordinator** — matrix + plan (done), board, rulings, gate run,
    freeze `stage-4/` at accepted revision.
 
-Gate: verifier CONFIRMED **and** coordinator-run official harness
-`--stage 4 --mode isolated` pass → `docs/gates/stage-4-freeze.md` → final
-packaging.
+Gate: verifier CONFIRMED and coordinator-run official harness
+`--stage 4 --mode isolated` passed; see `docs/gates/stage-4-freeze.md`.
+Final `--all --mode isolated`, clean-clone validation, and room export remain
+packaging gates.
 
 Architecture the service grows into:
 
