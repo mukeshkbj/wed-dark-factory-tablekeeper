@@ -18,6 +18,7 @@
 | Hardened deployment | **5/5 PASS** | `verification/stage-4/README.md`; verifier evidence at `62a9439` |
 | Inherited browser contract | **82/82 PASS**; stage-4 adds no screens | `verification/stage-4/ui_checks.py`; verifier evidence at `62a9439` |
 | Final official `--all --mode isolated` sweep | Stage-4 folder highest contiguous 4; stages 1–4 pass **120/120, 25/25, 7/7, 6/6**. Earlier stage folders fail only the expected next-stage overshoot checks. | `evidence/harness/final-all-isolated/summary.json` and per-stage reports (run at `db6a8dd`) |
+| Clean-clone reproduction | Fresh shallow clone of public commit `d32b368`; isolated `--all` reports highest contiguous stage 4 with all four stages passing. | `evidence/harness/final-all-clean-clone/summary.json` and per-stage reports |
 
 The coordinator harness report records `started_at` `2026-10-03T05:43:24.896620+00:00` and `finished_at` `2026-10-03T05:44:25.530662+00:00`.
 
@@ -37,7 +38,7 @@ The stage-4 product tree is unchanged between `579f39c` and `2e3bf6f`; later com
 ## Held open / packaging
 
 - This gate freezes the product tree at `579f39c`; future product changes require an explicit reopening and re-verification.
-- The final official `--all --mode isolated` sweep passed the complete stage chain from the stage-4 folder; a clean-clone validation remains pending.
+- The final official isolated `--all` sweep and a fresh-clone reproduction both pass through stage 4; the offline submission check remains blocked only on the operator's real room export.
 - `room.json` must be exported from the real BAND room by the operator; do not fabricate it. The offline `harness check` was run and reports only this missing file; rerun it after export and credential review.
 - The reviewed inherited-UI screenshots from the stage-4 gate are included under `evidence/ui-s4-gate/`. Older untracked screenshot sets under `evidence/ui-s3/`, `evidence/ui-s3-phase2/`, `evidence/ui-s3-gate/`, and `evidence/ui-s4/` are redundant and remain outside this freeze commit.
 - The verifier suite is broad but cannot guarantee hidden judging tests; see `verification/stage-4/matrix.md` for coverage limits.

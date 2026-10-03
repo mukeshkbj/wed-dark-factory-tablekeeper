@@ -89,7 +89,7 @@ proved and what it caught:
 | 3 | `d9d04ba` | freeze `7e957fe` | 7/7 isolated; verifier also passed the host run |
 | 4 | `579f39c` | freeze `db6a8dd` | 6/6 isolated; verifier also passed the host run |
 
-The final official `--all --mode isolated` sweep at `db6a8dd` reports highest contiguous stage 4. Its stage-4 folder passes stages 1–4 (120/120, 25/25, 7/7, 6/6). Earlier stage folders intentionally fail the next-stage overshoot probe while each still passes its own claimed stage. Full reports are under `evidence/harness/final-all-isolated/`.
+The final official `--all --mode isolated` sweep at `db6a8dd` reports highest contiguous stage 4. Its stage-4 folder passes stages 1–4 (120/120, 25/25, 7/7, 6/6). A fresh shallow clone of public commit `d32b368` independently reproduces the same result. Earlier stage folders intentionally fail the next-stage overshoot probe while each still passes its own claimed stage. Reports are under `evidence/harness/final-all-isolated/` and `evidence/harness/final-all-clean-clone/`.
 
 ### What review caught
 
