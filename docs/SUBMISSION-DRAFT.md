@@ -23,7 +23,7 @@ Four BAND seats built a four-stage, spec-derived Tablekeeper reservation service
 
 ### Long description (draft; review before use)
 
-Tablekeeper pairs a restaurant reservation service with the four-seat BAND factory that built it. The Coordinator, Engineer, Experience, and Verifier seats worked from a single dispatch to produce four independently buildable stages. The service covers table search and reservations, paired tables, timezone-aware booking, idempotent retries, effective-dated policies, recurring visits, and manager previews for seating changes after a table closure. Applying a plan atomically records the closure and moves affected reservations while preserving guest times and accepted terms. An independent verifier derived checks from the official specifications; the final isolated harness passed the full stage chain, including 120, 25, 7, and 6 published checks for stages one through four, and that result reproduced from a fresh public GitHub clone. The repository includes the code, generic mandates, handoffs, repair history, gate evidence, and a synthetic demo runbook. The run did require operator help restoring runtime access, restarting stalled seats, and recording gate evidence after room-cap failures, so it was not a zero-human-intervention run. Per-seat cost and stage wall-time are unknown, and hidden-test success is not claimed. A safe public demo deployment and the required media package are still pending.
+Tablekeeper pairs a restaurant reservation service with the four-seat BAND factory that built it. The Coordinator, Engineer, Experience, and Verifier seats worked from a single dispatch to produce four independently buildable stages. The service covers table search and reservations, paired tables, timezone-aware booking, idempotent retries, effective-dated policies, recurring visits, and manager previews for seating changes after a table closure. Applying a plan atomically records the closure and moves affected reservations while preserving guest times and accepted terms. An independent verifier derived checks from the official specifications; the final isolated harness passed the full stage chain, including 120, 25, 7, and 6 published checks for stages one through four, and that result reproduced from a fresh public GitHub clone. The repository includes the code, generic mandates, handoffs, repair history, gate evidence, and a synthetic demo runbook. The run did require operator help restoring runtime access, restarting stalled seats, and recording gate evidence after room-cap failures, so it was not a zero-human-intervention run. Per-seat cost and stage wall-time are unknown, and hidden-test success is not claimed. The cover image and slide deck are prepared; a safe public demo recipe is included in the repository but not yet deployed.
 
 ### Technology/category tags (select only if present)
 
@@ -42,24 +42,32 @@ Target an edited walkthrough under five minutes if the live upload form confirms
 
 Before recording, review the room view and desktop for secrets. The raw room export is unredacted and must be reviewed separately before it is committed.
 
-## Slide deck outline (prepare as PDF after checking the form)
+## Produced assets
+
+- **Cover image:** `submission/cover.png` — 1600×900 PNG, product visual language (warm cream, forest green, ink), Tablekeeper wordmark, tagline, seating-grid motif drawn from the real demo fixture. Source: `submission/src/cover.html`.
+- **Slide deck:** `submission/deck.pdf` — 7 pages, 16:9. Title → the guest-promise problem → product flow → the four-seat factory → verification evidence → proven-vs-not-claimed → repo pointers. All metrics labeled as checks executed. Source: `submission/src/deck.html`.
+- **Public demo recipe:** `submission/deploy/` — compose stack validated on loopback (health/UI 200, all `/_test/*` return 404 through the proxy, seeded demo login works). Not yet deployed: requires an authorized host.
+
+## Slide deck outline (as produced in `submission/deck.pdf`)
 
 1. **Title and promise:** Tablekeeper; “keep the guest's time and accepted terms when a table closes.”
-2. **The factory:** four seats and their generic ownership; one dispatch → committed handoffs → independent spec-derived verification. Include the operator-intervention caveat.
+2. **The problem:** a closure must not silently move a booking — time and accepted terms are the promise.
 3. **The product flow:** search/booking → closure preview → atomic apply → existing availability and lookup views reflect the reassignment.
-4. **Verification:** stage chain 120/120, 25/25, 7/7, 6/6; independent stage-4 suite 862/862, upgrade 62/62, inherited UI 82/82, hardened 5/5. Label these as check counts and cite the repository evidence.
-5. **What is and is not proven:** immutable stage revisions and clean-clone result; synthetic data; no users/revenue/production deployment claims; unknown seat costs and end-to-end stage durations; human recovery actions.
+4. **The factory:** four seats and their generic ownership; one dispatch → committed handoffs → independent spec-derived verification, with the reject loop and the operator-intervention caveat.
+5. **Verification:** stage chain 120/120, 25/25, 7/7, 6/6; independent stage-4 suite 862/862, upgrade 62/62, inherited UI 82/82, hardened 5/5; fresh-clone reproduction. Labeled as check counts.
+6. **Proven vs not claimed:** frozen revisions and clean-clone result; synthetic data; no users/revenue/production deployment claims; unknown seat costs and stage durations; human recovery actions.
+7. **Try it:** repository, runbook, license, factory artifacts.
 
-## Cover direction (not an uploaded asset)
+## Cover direction (as produced in `submission/cover.png`)
 
-Use the product's existing warm cream, forest-green, and ink visual language. A clean 16:9 composition can pair the Tablekeeper wordmark with a minimal seating-grid motif and the line “A reservation factory that keeps the guest promise.” Use no customer logos, fabricated metrics, or unsourced market claims. Confirm PNG/JPG and exact dimensions in the live upload form; the repository currently has UI evidence screenshots, not a dedicated cover image.
+The product's warm cream, forest-green, and ink visual language. A 16:9 composition pairs the Tablekeeper wordmark with a minimal seating-grid motif and the line “A reservation factory that keeps the guest promise.” No customer logos, fabricated metrics, or unsourced market claims. Confirm PNG/JPG acceptance and size limits in the live upload form.
 
 ## Submission blockers
 
 - **BAND room:** `room.json` is missing. In Band Desktop, open scored room `9bf93138-25b0-431d-aa62-4a3dbca30155`; use the room menu → Download → Download full session. Save the original file at the repo root as `room.json`, inspect it for credentials/private values, then run the official `harness check`. Never synthesize a replacement.
 - **Mandatory video:** no room-inclusive video recording is present. The operator must record the actual room and product walkthrough.
-- **Slides and cover:** no PDF deck or dedicated PNG/JPG cover is present; only an outline and art direction are prepared here.
-- **Working online prototype:** the repository documents a local loopback demo only. The default service exposes test reset/import/export routes; hardened mode disables these but does not preload the synthetic demo fixture. Do not expose the default mode publicly or claim a working public URL until a safe deployment is available and tested.
+- **Slides and cover:** produced — `submission/deck.pdf` (7 pages) and `submission/cover.png` (1600×900). Review both against the live form's size/format rules before upload.
+- **Working online prototype:** a safe deployment recipe now exists at `submission/deploy/` and passed a full loopback validation (proxy blocks `/_test/*`, synthetic fixture seeded internally). It still requires an **authorized host/domain** — none has been named. Do not claim a public URL until the stack is deployed on an authorized host and re-tested as an unauthenticated judge.
 - **Autonomy rubric risk:** runtime recovery and some gate-recording actions required operator intervention. This is disclosed in `FACTORY.md`; do not describe the submitted run as fully hands-off.
 
 Repository: https://github.com/mukeshkbj/wed-dark-factory-tablekeeper

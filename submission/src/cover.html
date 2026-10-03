@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tablekeeper — cover</title>
+<style>
+  :root {
+    --bg: #f6f1e7;
+    --surface: #fffdf8;
+    --surface-2: #f1e9da;
+    --ink: #2b241c;
+    --ink-soft: #57503f;
+    --muted: #8a7f6d;
+    --line: #e2d8c5;
+    --accent: #2f5d3f;
+    --accent-deep: #244a31;
+    --accent-soft: #e3ecdd;
+    --accent-line: #b9cfae;
+    --danger: #a83c28;
+    --danger-soft: #f7e4de;
+    --ok: #2f7d4f;
+    --serif: Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1600px; height: 900px; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    display: flex;
+    padding: 92px 104px;
+    gap: 88px;
+  }
+  .left { flex: 1; display: flex; flex-direction: column; }
+  .eyebrow {
+    font-size: 20px; letter-spacing: .22em; font-weight: 700;
+    color: var(--muted); text-transform: uppercase; margin-bottom: 56px;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 700; }
+  h1 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: 128px; line-height: 1.02; letter-spacing: .01em;
+    color: var(--ink);
+  }
+  h1 em { color: var(--accent); font-style: normal; }
+  .tagline {
+    font-family: var(--serif); font-style: italic;
+    font-size: 37px; line-height: 1.3; color: var(--ink-soft);
+    margin-top: 34px; max-width: 640px;
+  }
+  .chip {
+    display: inline-block; margin-top: 46px;
+    background: var(--accent-soft); color: var(--accent-deep);
+    border: 1px solid var(--accent-line); border-radius: 999px;
+    padding: 12px 26px; font-size: 21px; font-weight: 600;
+    letter-spacing: .02em;
+    align-self: flex-start;
+  }
+  .foot {
+    margin-top: auto; font-size: 19px; color: var(--muted);
+    display: flex; gap: 14px; align-items: baseline;
+  }
+  .foot .sep { color: var(--line); }
+  /* ---- right: floor-plan card ---- */
+  .card {
+    width: 540px; align-self: center;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 20px; padding: 34px 34px 30px;
+    box-shadow: 0 1px 2px rgba(43,36,28,.06), 0 18px 48px rgba(43,36,28,.10);
+  }
+  .card h2 {
+    font-family: var(--serif); font-weight: 600; font-size: 25px;
+    color: var(--ink); display: flex; justify-content: space-between;
+    align-items: baseline; margin-bottom: 24px;
+  }
+  .card h2 span { font-family: var(--sans); font-size: 16px;
+    color: var(--muted); font-weight: 500; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .tbl {
+    border-radius: 12px; border: 1.5px solid var(--line);
+    background: var(--surface-2); padding: 16px 18px;
+    min-height: 96px; display: flex; flex-direction: column;
+    justify-content: space-between;
+  }
+  .tbl .name { font-family: var(--serif); font-size: 20px; font-weight: 600; }
+  .tbl .cap { font-size: 15px; color: var(--muted); margin-top: 8px; }
+  .tbl.booked { background: var(--accent-soft); border-color: var(--accent-line); }
+  .tbl.booked .cap { color: var(--accent-deep); font-weight: 600; }
+  .tbl.closed {
+    background: var(--danger-soft); border-color: var(--danger);
+    border-style: dashed;
+  }
+  .tbl.closed .cap { color: var(--danger); font-weight: 600; }
+  .tbl.pair {
+    grid-column: 1 / -1; background: var(--surface);
+    border-color: var(--accent); border-width: 1.5px;
+    min-height: 84px;
+  }
+  .tbl.pair .cap { color: var(--accent-deep); font-weight: 600; }
+  .slots {
+    display: flex; gap: 10px; margin-top: 26px;
+    padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  .slot {
+    flex: 1; text-align: center; font-size: 15.5px; font-weight: 600;
+    padding: 9px 0; border-radius: 8px;
+    background: var(--surface-2); color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .slot.free { background: var(--accent-soft); color: var(--accent-deep);
+    border-color: var(--accent-line); }
+  .legend {
+    display: flex; gap: 22px; margin-top: 20px;
+    font-size: 15px; color: var(--ink-soft);
+  }
+  .legend i {
+    display: inline-block; width: 12px; height: 12px; border-radius: 4px;
+    margin-right: 7px; vertical-align: -1px;
+  }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="eyebrow">WeAreDevelopers <b>×</b> BAND &nbsp;·&nbsp; Dark Factory</div>
+    <h1>Table<em>keeper</em></h1>
+    <p class="tagline">A reservation factory that keeps the guest&nbsp;promise.</p>
+    <div class="chip">Verified four-stage reservation system</div>
+    <div class="foot">
+      <span>github.com/mukeshkbj/wed-dark-factory-tablekeeper</span>
+      <span class="sep">·</span><span>MIT</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Zum Anker <span>tonight · floor plan</span></h2>
+    <div class="grid">
+      <div class="tbl booked">
+        <div class="name">Window Two</div>
+        <div class="cap">2 seats · booked 19:00</div>
+      </div>
+      <div class="tbl">
+        <div class="name">Chef&rsquo;s Counter</div>
+        <div class="cap">4 seats · open</div>
+      </div>
+      <div class="tbl closed">
+        <div class="name">Canal Alcove</div>
+        <div class="cap">6 seats · closed 19–21</div>
+      </div>
+      <div class="tbl pair">
+        <div class="name">Counter&nbsp;+&nbsp;Alcove</div>
+        <div class="cap">combined pair · 10 seats · replanned</div>
+      </div>
+    </div>
+    <div class="slots">
+      <div class="slot">17:30</div>
+      <div class="slot free">18:00</div>
+      <div class="slot free">18:30</div>
+      <div class="slot free">19:00</div>
+      <div class="slot">19:30</div>
+      <div class="slot free">20:00</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#e3ecdd;border:1px solid #b9cfae"></i>held</span>
+      <span><i style="background:#f1e9da;border:1px solid #e2d8c5"></i>open</span>
+      <span><i style="background:#f7e4de;border:1px dashed #a83c28"></i>closure</span>
+    </div>
+  </div>
+</body>
+</html>
