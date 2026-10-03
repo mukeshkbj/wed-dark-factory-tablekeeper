@@ -78,9 +78,30 @@ proved and what it caught:
 - **Caught — harness defect**: `--mode isolated` on Windows passes backslash
   paths into the Linux runner (upstream bug); WSL2 harness path verified clean.
 
-## Scored run (filled post-run)
+## Scored run
 
-- Wall time per stage, token usage and cost per seat: _TBD_
-- What review caught: _TBD_
-- What review missed: _TBD_
-- Accepted revisions per stage: _TBD_
+### Frozen product revisions and gate outcomes
+
+| Stage | Accepted product revision | Freeze/evidence | Official harness at that stage |
+|---|---|---|---|
+| 1 | `28b16f4` | freeze `aae0226` | 120/120 isolated |
+| 2 | `5be5343` | freeze `e4087b6` | 25/25 isolated; initial rejection repaired before acceptance |
+| 3 | `d9d04ba` | freeze `7e957fe` | 7/7 isolated; verifier also passed the host run |
+| 4 | `579f39c` | freeze `db6a8dd` | 6/6 isolated; verifier also passed the host run |
+
+The final official `--all --mode isolated` sweep at `db6a8dd` reports highest contiguous stage 4. Its stage-4 folder passes stages 1–4 (120/120, 25/25, 7/7, 6/6). Earlier stage folders intentionally fail the next-stage overshoot probe while each still passes its own claimed stage. Full reports are under `evidence/harness/final-all-isolated/`.
+
+### What review caught
+
+- Stage 1: email validation was too strict for the specified `local@domain` floor; fixture validation also rejected inputs allowed by the ruling. Both were repaired and re-verified.
+- Stage 2: the hidden no-slots UI element could win an availability-grid selector and cause successful searches to time out. The verifier rejected the first candidate; the repair detached the inactive element from the DOM, then passed the official harness.
+- Stage 3: the independent verifier suite and official host/isolated harness found no confirmed product defect.
+- Stage 4: the independent verifier suite (862/862 combined API checks, 62/62 upgrade, 5/5 hardened, 82/82 inherited UI) and official host/isolated harness found no confirmed product defect. Several initial verifier failures were traced to verifier-side fixtures/check assumptions and corrected without changing the accepted product tree.
+
+### Measurement and limitations
+
+- Seat-level token usage and cost were not captured in a complete, attributable ledger: **unknown**. Do not infer these values from context-window telemetry.
+- End-to-end wall time per stage was not recorded as a consistent dispatch-to-freeze metric: **unknown**. The stage-4 verifier's combined suite duration was recorded separately as 2337.5 seconds; it is test runtime, not total stage duration.
+- No authoritative retrospective ground truth exists for findings missed by review: **unknown**. Passing the published harness and independent suites does not guarantee hidden judging tests.
+- Recovery evidence includes an ACP authentication outage, two scored rooms reaching their message cap, the stage-2 verifier rejection/repair loop, and a false stage-3 route failure caused by stale local listeners. The stale-listener issue was resolved by using clean ports before final acceptance.
+- `room.json` is not included yet. The operator must download the full real session from Band, inspect it for credentials, then run the official offline `harness check`; no room transcript is fabricated here.

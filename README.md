@@ -16,7 +16,7 @@ produced, built clean-room from the official specification.
 | [`mandates/`](mandates/) | One standing instruction file per seat — deliberately generic |
 | `plan.md`, `architecture.json` | The room plan written by the coordinator seat |
 | `stage-1/` … `stage-4/` | One complete, buildable service per stage |
-| `docs/` | Requirements coverage and `DEMO-RUNBOOK.md` |
+| [`docs/`](docs/) | Requirements coverage and the [3-minute demo runbook](docs/DEMO-RUNBOOK.md) |
 | `evidence/` | Harness reports per stage (public-safe) |
 | [`FACTORY.md`](FACTORY.md) | How the factory actually ran — seats, decisions, what review caught |
 | `room.json` | The exported Band room — proof the seats did the work |

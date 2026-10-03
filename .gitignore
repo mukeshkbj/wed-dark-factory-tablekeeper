@@ -19,3 +19,7 @@ dist/
 .DS_Store
 Thumbs.db
 *.log
+/evidence/ui-s3/
+/evidence/ui-s3-phase2/
+/evidence/ui-s3-gate/
+/evidence/ui-s4/

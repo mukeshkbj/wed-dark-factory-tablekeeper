@@ -17,6 +17,7 @@
 | Upgrade continuity | **62/62 PASS** across stage-1/2/3/4 exports and round trips | `verification/stage-4/upgrade_checks.py`; verifier evidence at `62a9439` |
 | Hardened deployment | **5/5 PASS** | `verification/stage-4/README.md`; verifier evidence at `62a9439` |
 | Inherited browser contract | **82/82 PASS**; stage-4 adds no screens | `verification/stage-4/ui_checks.py`; verifier evidence at `62a9439` |
+| Final official `--all --mode isolated` sweep | Stage-4 folder highest contiguous 4; stages 1–4 pass **120/120, 25/25, 7/7, 6/6**. Earlier stage folders fail only the expected next-stage overshoot checks. | `evidence/harness/final-all-isolated/summary.json` and per-stage reports (run at `db6a8dd`) |
 
 The coordinator harness report records `started_at` `2026-10-03T05:43:24.896620+00:00` and `finished_at` `2026-10-03T05:44:25.530662+00:00`.
 
@@ -36,8 +37,8 @@ The stage-4 product tree is unchanged between `579f39c` and `2e3bf6f`; later com
 ## Held open / packaging
 
 - This gate freezes the product tree at `579f39c`; future product changes require an explicit reopening and re-verification.
-- The official final `--all --mode isolated` sweep and clean-clone validation remain packaging gates and are not claimed here.
-- `room.json` must be exported from the real BAND room by the operator; do not fabricate it. Run the official offline harness `check` after that export.
+- The final official `--all --mode isolated` sweep passed the complete stage chain from the stage-4 folder; a clean-clone validation remains pending.
+- `room.json` must be exported from the real BAND room by the operator; do not fabricate it. The offline `harness check` was run and reports only this missing file; rerun it after export and credential review.
 - The reviewed inherited-UI screenshots from the stage-4 gate are included under `evidence/ui-s4-gate/`. Older untracked screenshot sets under `evidence/ui-s3/`, `evidence/ui-s3-phase2/`, `evidence/ui-s3-gate/`, and `evidence/ui-s4/` are redundant and remain outside this freeze commit.
 - The verifier suite is broad but cannot guarantee hidden judging tests; see `verification/stage-4/matrix.md` for coverage limits.
 
