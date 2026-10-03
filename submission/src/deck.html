@@ -91,6 +91,9 @@
     padding: 8px 18px; font-weight: 600; font-size: 17px; }
   .loop .arrow { color: var(--accent); font-weight: 700; }
   .loop .back { color: var(--danger); font-size: 15px; font-style: italic; }
+  .diagram { display: block; margin: 4px auto 0; width: 1020px;
+    max-width: 100%; border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(43,36,28,.06), 0 10px 30px rgba(43,36,28,.08); }
   /* evidence table */
   table { width: 100%; border-collapse: collapse; font-size: 19px;
     background: var(--surface); border-radius: 12px; overflow: hidden; }
@@ -187,26 +190,9 @@
 <!-- 4 · factory -->
 <section class="slide">
   <div class="kicker">The factory</div>
-  <h2>Four persistent BAND seats, <em>one dispatch</em></h2>
-  <div class="seats">
-    <div class="seat"><div class="role">Coordinator</div>
-      <div class="d">Reads the spec, builds requirement matrices, dispatches handoffs, records gates and freezes.</div></div>
-    <div class="seat"><div class="role">Engineer</div>
-      <div class="d">Implements each stage clean-room from the official specification; repairs on rejection.</div></div>
-    <div class="seat"><div class="role">Experience</div>
-      <div class="d">Builds the browser UI and produces visual continuity evidence per stage.</div></div>
-    <div class="seat"><div class="role">Verifier</div>
-      <div class="d">Derives independent checks from the spec; runs the official harness; accepts or rejects.</div></div>
-  </div>
-  <div class="loop">
-    <span class="node">dispatch</span><span class="arrow">&rarr;</span>
-    <span class="node">committed handoffs</span><span class="arrow">&rarr;</span>
-    <span class="node">spec-derived verification</span><span class="arrow">&rarr;</span>
-    <span class="node">gate</span><span class="arrow">&rarr;</span>
-    <span class="node">freeze</span>
-    <span class="back">&hookleftarrow; reject returns to Engineer (happened in stage 2)</span>
-  </div>
-  <div class="foot"><span>Generic mandates &mdash; reusable across stages</span><span>4 / 7</span></div>
+  <img class="diagram" src="../factory-diagram.png"
+    alt="Hand-drawn factory loop: the official spec feeds the Coordinator, which hands off to Engineer and Experience; both feed the Verifier; the Pass? gate accepts into Freeze; dashed loops return rejects to Engineer and each freeze to the next dispatch.">
+  <div class="foot"><span>Reject loop fired for real in stage 2 &middot; diagram: submission/factory-diagram.svg</span><span>4 / 7</span></div>
 </section>
 
 <!-- 5 · verification -->

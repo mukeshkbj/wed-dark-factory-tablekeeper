@@ -1,0 +1,34 @@
+{
+  "layout": "graph",
+  "direction": "right",
+  "style": "paper",
+  "animation": "flow",
+  "title": {
+    "prefix": "The Dark",
+    "highlight": "Factory",
+    "subtitle": "one dispatch · spec-derived gates · reject loops back to Engineer"
+  },
+  "canvas": { "fps": 20, "frames": 41 },
+  "nodes": [
+    { "id": "spec", "label": "Official spec", "icon": "clipboard", "body": "4 stages" },
+    { "id": "coordinator", "label": "Coordinator", "icon": "orchestrator", "body": "matrix · handoffs", "icon_style": "illustrated" },
+    { "id": "engineer", "label": "Engineer", "icon": "worker", "body": "stage implementation", "icon_style": "illustrated" },
+    { "id": "experience", "label": "Experience", "icon": "eye", "body": "UI + evidence", "icon_style": "illustrated" },
+    { "id": "verifier", "label": "Verifier", "icon": "shield", "body": "spec-derived checks", "icon_style": "illustrated" },
+    { "id": "gate", "label": "Pass?", "kind": "decision" },
+    { "id": "freeze", "label": "Freeze", "kind": "terminal", "accent": "green" }
+  ],
+  "edges": [
+    { "from": "spec", "to": "coordinator" },
+    { "from": "coordinator", "to": "engineer", "label": "handoff" },
+    { "from": "coordinator", "to": "experience", "label": "handoff" },
+    { "from": "engineer", "to": "verifier" },
+    { "from": "experience", "to": "verifier" },
+    { "from": "verifier", "to": "gate" },
+    { "from": "gate", "to": "freeze", "label": "accept" },
+    { "from": "gate", "to": "engineer", "kind": "loop", "label": "reject · repair", "accent": "pink" },
+    { "from": "freeze", "to": "coordinator", "kind": "loop", "label": "next stage", "accent": "amber" }
+  ],
+  "footer": "dashed channels: gate reject → Engineer repair · stage freeze → next dispatch",
+  "signature": "tablekeeper-factory"
+}

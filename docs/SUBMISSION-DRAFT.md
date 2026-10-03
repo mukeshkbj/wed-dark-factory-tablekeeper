@@ -45,7 +45,8 @@ Before recording, review the room view and desktop for secrets. The raw room exp
 ## Produced assets
 
 - **Cover image:** `submission/cover.png` — 1600×900 PNG, product visual language (warm cream, forest green, ink), Tablekeeper wordmark, tagline, seating-grid motif drawn from the real demo fixture. Source: `submission/src/cover.html`.
-- **Slide deck:** `submission/deck.pdf` — 7 pages, 16:9. Title → the guest-promise problem → product flow → the four-seat factory → verification evidence → proven-vs-not-claimed → repo pointers. All metrics labeled as checks executed. Source: `submission/src/deck.html`.
+- **Slide deck:** `submission/deck.pdf` — 7 pages, 16:9. Title → the guest-promise problem → product flow → the four-seat factory (hand-drawn diagram) → verification evidence → proven-vs-not-claimed → repo pointers. All metrics labeled as checks executed. Source: `submission/src/deck.html`.
+- **Factory diagram:** `submission/factory-diagram.png` / `.svg` / `.gif` — hand-drawn paper-style loop: spec → Coordinator → Engineer + Experience → Verifier → gate → Freeze, with dashed reject-repair and next-stage channels. Source spec: `submission/src/factory-diagram.spec.json`.
 - **Public demo recipe:** `submission/deploy/` — compose stack validated on loopback (health/UI 200, all `/_test/*` return 404 through the proxy, seeded demo login works). Not yet deployed: requires an authorized host.
 
 ## Slide deck outline (as produced in `submission/deck.pdf`)
