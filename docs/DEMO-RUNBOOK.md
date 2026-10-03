@@ -72,7 +72,7 @@ Return to the browser and sign in as `demo@tablekeeper.test` if needed.
 
 - The manager preview is a proposal; occupancy and history change only after apply.
 - The demo demonstrates one seeded reservation being reassigned. It does not claim production deployment, external users, revenue, or live restaurant data.
-- Fixture dates are fixed at October 2–4, 2026; reset the fixture before each run. No public hosted demo URL is currently documented in this repository.
+- Fixture dates are fixed at October 2–4, 2026; reset the fixture before each run. A public demo deployment exists at `https://tablekeeper-demo-52fh.onrender.com` (Render free tier, seeded synthetic fixture; idles out and cold-starts under ~1 min).
 - The service's default test mode exposes `/_test/reset`, `/_test/export`, and `/_test/import`; use loopback only. Hardened mode disables those endpoints. A proxy-fronted recipe that keeps the app internal, seeds it, and blocks `/_test/*` publicly lives in `submission/deploy/` — it still requires an authorized host and is not yet deployed.
 
 ## Reproduce the focused check

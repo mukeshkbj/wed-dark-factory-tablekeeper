@@ -46,6 +46,14 @@ and other serverless/edge platforms cannot host the stateful service.
 Blueprint → this repo); free tier spins down on idle and cold-starts
 reseed the fixture.
 
+## Live demo
+
+**https://tablekeeper-demo-52fh.onrender.com** — Render free tier via the
+`render.yaml` blueprint + `submission/deploy/single/` image. Verified as an
+unauthenticated judge 2026-10-03: health/UI 200, `/_test/*` all 404, seeded
+demo login works. Form platform field → **Other**. Free tier idles out after
+~15 min (≈1 min cold start; fixture reseeds each start — demo self-heals).
+
 ## Blockers (operator-only)
 
 1. `room.json` — export the real BAND room (`9bf93138-…`) via room menu →
@@ -53,6 +61,5 @@ reseed the fixture.
    repo root; rerun `harness check`. Do not fabricate.
 2. Video — must show the actual BAND Desktop room plus walkthrough
    (room-less video disqualifies). Storyboard: `docs/SUBMISSION-DRAFT.md`.
-3. Public URL — deploy the recipe above on an authorized host and test it.
-4. Form — title/short/long descriptions and tags drafted in
+3. Form — title/short/long descriptions and tags drafted in
    `docs/SUBMISSION-DRAFT.md`; select the form's exact tags at upload.
