@@ -26,8 +26,8 @@ This stack gets both properties without changing the product:
 
 - A host and domain you are **authorized** to deploy to. This recipe does not
   pick a host for you.
-- A host that runs a **persistent Docker container** — a VPS, Render,
-  Railway, Fly.io, Cloud Run, or similar. Serverless/edge platforms
+- A host that runs a **persistent Docker container** — Render, Railway,
+  Fly.io, Cloud Run, a VPS, or similar. Serverless/edge platforms
   (Vercel, Netlify, Cloudflare Workers) do **not** fit: the service keeps
   its store in one process's memory, which ephemeral function instances
   cannot preserve, and adapting it would mean reopening the frozen product.
@@ -56,6 +56,14 @@ docker run -d -p <public-port>:80 tablekeeper-demo      # or -e PORT=xxxx
 Inside the container the app listens on `127.0.0.1:18080` (never publish
 it); nginx listens on `$PORT` or 80 and blocks `/_test*`. Platforms that
 inject a port (e.g. Cloud Run) work automatically.
+
+**C. Render free tier (recommended)** — the repo includes `render.yaml`:
+Dashboard → New → Blueprint → select this repository. Free plan = exactly
+one instance (required for in-memory state), auto TLS on
+`*.onrender.com`, no card needed. Caveats: spins down after ~15 min idle
+(~1 min cold start — the seed reruns every cold start, so the demo
+self-heals to the pristine fixture), and judge-created bookings vanish on
+spin-down. A paid plan removes both if desired.
 
 ## Launch (compose variant)
 

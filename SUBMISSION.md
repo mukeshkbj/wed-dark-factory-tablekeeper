@@ -42,6 +42,9 @@ Two shapes: compose (`docker-compose.yml`, validated on loopback) and an
 all-in-one image (`single/Dockerfile`, also validated) for
 single-container hosts. Requires a persistent container runtime — Vercel
 and other serverless/edge platforms cannot host the stateful service.
+`render.yaml` ships a Render free-tier blueprint (Dashboard → New →
+Blueprint → this repo); free tier spins down on idle and cold-starts
+reseed the fixture.
 
 ## Blockers (operator-only)
 

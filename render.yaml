@@ -1,0 +1,17 @@
+# Render blueprint — one-click deploy of the Tablekeeper demo.
+# Dashboard → New → Blueprint → point at this repo. Or:
+#   https://render.com/deploy?repo=https://github.com/mukeshkbj/wed-dark-factory-tablekeeper
+#
+# Single free instance (in-memory state requires exactly one). Free tier
+# spins down after ~15 min idle and cold-starts on the next hit — the
+# container's startup seed restores the synthetic fixture every time.
+
+services:
+  - type: web
+    name: tablekeeper-demo
+    runtime: docker
+    dockerfilePath: ./submission/deploy/single/Dockerfile
+    plan: free
+    numInstances: 1
+    healthCheckPath: /health
+    autoDeploy: false
